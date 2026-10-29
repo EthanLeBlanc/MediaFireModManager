@@ -1,0 +1,84 @@
+name: Build and release
+
+# Makes a new release that every copy of the app will offer to install.
+#  - Push a tag like v2.3.0, or
+#  - GitHub website: Actions > Build and release > Run workflow > type the version.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number, e.g. 2.3.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Work out the version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then V="${{ inputs.version }}"; else V="${GITHUB_REF_NAME}"; fi
+          V="${V#v}"; V="${V#V}"
+          if ! [[ "$V" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]]; then echo "Bad version: $V"; exit 1; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Stamp the version into the app
+        run: python set_version.py ${{ steps.ver.outputs.version }} --repo ${{ github.repository }}
+
+      - name: Build the exe
+        run: >
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --name MediaFireModManager
+          --collect-all tkinterdnd2
+          --collect-all customtkinter
+          --hidden-import darkdetect
+          --hidden-import keyring.backends.Windows
+          mediafire_mod_manager.py
+
+      - name: Check the exe starts and reports the right version
+        shell: pwsh
+        run: |
+          $out = Join-Path $PWD "ver.txt"
+          Start-Process -FilePath "dist\MediaFireModManager.exe" -ArgumentList "--write-version", "`"$out`"" -Wait
+          $v = (Get-Content $out).Trim()
+          if ($v -ne "${{ steps.ver.outputs.version }}") { throw "The exe reports version '$v'" }
+          Write-Host "exe reports version $v"
+
+      - name: Checksum and release notes
+        shell: bash
+        run: |
+          (cd dist && sha256sum MediaFireModManager.exe | cut -d' ' -f1 > MediaFireModManager.exe.sha256)
+          python release_notes.py ${{ steps.ver.outputs.version }} > notes.md
+          cat notes.md
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: v${{ steps.ver.outputs.version }}
+          body_path: notes.md
+          make_latest: true
+          files: |
+            dist/MediaFireModManager.exe
+            dist/MediaFireModManager.exe.sha256
