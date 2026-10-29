@@ -36,14 +36,15 @@ Log in with your MediaFire email and password. "Remember me" saves the password 
 
 GitHub builds the exe for you.
 
-1. Make your changes and add a section for the new version at the top of [CHANGELOG.md](CHANGELOG.md). That text is what people see in the "Update available" window.
-2. Start a release in either of two ways:
-   - **On the GitHub website:** go to **Actions → Build and release → Run workflow** and type the version, e.g. `2.3.0`.
-   - **From git:** `git tag v2.3.0 && git push origin v2.3.0`.
-3. In a few minutes the [Build and release](.github/workflows/release.yml) action builds the exe on Windows. It checks that the exe starts and reports the right version, then posts it as a release.
-4. Every copy of the app offers the update the next time it opens.
+1. Make your changes.
+2. Raise `VERSION` in [`app_version.py`](app_version.py) (e.g. `2.2.0` → `2.3.0`). Add a section for it at the top of [CHANGELOG.md](CHANGELOG.md). That text is what people see in the "Update available" window.
+3. Commit and push to `main`.
 
-Version numbers must go up (2.2.0 → 2.2.1 → 2.3.0). The app only offers a release that's newer than what it's running.
+The [Build and release](.github/workflows/release.yml) action sees the new version number and builds the exe on Windows. It checks that the exe starts and reports the right version, then posts it as release `v2.3.0`. Every copy of the app offers the update the next time it opens. Pushes that don't change the version don't make a release.
+
+Other ways to start a release: on the GitHub website go to **Actions → Build and release → Run workflow** and type a version, or push a tag like `v2.3.0`.
+
+Version numbers must go up. The app only offers a release that's newer than what it's running.
 
 ## Building it yourself
 

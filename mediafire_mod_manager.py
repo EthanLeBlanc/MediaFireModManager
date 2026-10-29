@@ -1661,7 +1661,7 @@ class App:
         how = self._card(pg, 3)
         ctk.CTkLabel(how, text="How a new version gets here", font=F(14, "bold"), text_color=C["text"],
                      anchor="w").grid(row=0, column=0, sticky="w", padx=20, pady=(16, 0))
-        ctk.CTkLabel(how, text="1.  Changes are pushed to GitHub with a new version tag (like v2.3.0)\n"
+        ctk.CTkLabel(how, text="1.  Changes are pushed to GitHub with a higher version number\n"
                                "2.  GitHub builds the exe by itself and posts it as a release\n"
                                "3.  Every copy of the app is asked to update the next time it opens",
                      font=F(12), text_color=C["muted"], anchor="w", justify="left").grid(

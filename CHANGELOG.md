@@ -1,7 +1,7 @@
 # Changelog
 
 Each version's notes are shown in the app's "Update available" window.
-Add a new section at the top before releasing a new version.
+When you raise VERSION in app_version.py, add a section for it at the top.
 
 ## 2.2.0
 - The app now updates itself from GitHub: it checks for a new version when it opens, shows what's new and installs it for you
