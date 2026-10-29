@@ -3,6 +3,11 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.3.0
+- Halloween theme: pumpkin orange and midnight purple, a flickering jack-o'-lantern logo, and a night-sky scene in the sidebar
+- Bats in the sidebar scene fly away from your cursor, and clicking one makes it vanish in a puff; a spider drops down on its thread to follow you
+- New theme switch at the bottom of the sidebar (Midnight or Halloween)
+
 ## 2.2.1
 - More reliable update downloads from GitHub
 

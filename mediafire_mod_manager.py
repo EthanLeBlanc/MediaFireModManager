@@ -59,6 +59,38 @@ C = {
     "ok": "#3fcf8e", "ok_bg": "#11301f", "warn": "#f4b03e", "warn_bg": "#352910",
     "bad": "#f26b6b", "bad_bg": "#381818", "info": "#82a9ff", "info_bg": "#16243e",
 }
+C.update({"on_accent": "#ffffff", "knob": "#ffffff", "sel_text": "#ffffff"})
+
+# Pick a theme with the switch in the sidebar (applies after a restart).
+THEMES = {
+    "midnight": dict(C),
+    "halloween": {
+        "bg": "#0c0910", "side": "#110c17", "card": "#18111f", "card2": "#211829",
+        "hover": "#2b1f36", "border": "#2c2138", "border_hi": "#4d3462",
+        "text": "#f4ebdd", "muted": "#a796b6", "dim": "#6e5e80",
+        "accent": "#ff7a1a", "accent_h": "#e86509", "accent_soft": "#371c0b", "select": "#3f2214",
+        "ok": "#8ee26b", "ok_bg": "#17300f", "warn": "#ffb627", "warn_bg": "#3a2a0a",
+        "bad": "#ff4d6d", "bad_bg": "#3b1220", "info": "#b48cff", "info_bg": "#271a42",
+        "on_accent": "#1c0d03", "knob": "#f4ebdd", "sel_text": "#fff3e6",
+    },
+}
+THEME_LABELS = {"midnight": "Midnight", "halloween": "Halloween"}
+THEME = "midnight"
+TITLE_FAMILY = FAMILY
+
+
+def apply_theme(name):
+    global THEME
+    THEME = name if name in THEMES else "midnight"
+    C.update(THEMES[THEME])
+
+
+def _blend(c1, c2, t):
+    a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#%02x%02x%02x" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
 PILL = {"ok": ("ok_bg", "ok"), "warn": ("warn_bg", "warn"), "bad": ("bad_bg", "bad"),
         "info": ("info_bg", "info"), "neutral": ("card2", "muted")}
 _FONTS = {}
@@ -190,6 +222,233 @@ def _inside(widget, parent):
     return False
 
 
+# ============================================================ halloween decor
+def _scale(widget):
+    try:
+        return ctk.ScalingTracker.get_widget_scaling(widget)
+    except Exception:
+        return 1.0
+
+
+class PumpkinLogo(tk.Canvas):
+    """Jack-o'-lantern with a flickering candle inside."""
+    GLOW = ("#ffe16b", "#ffcf3f", "#ffb627", "#ff9b1f", "#ffd55a")
+
+    def __init__(self, master, size=40, bg=None):
+        self.k = _scale(master)
+        px = int(size * self.k)
+        super().__init__(master, width=px, height=px, bg=bg or C["side"], highlightthickness=0, bd=0)
+        k = px / 40
+        P = lambda *xy: [v * k for v in xy]
+        self.create_oval(*P(3, 9, 23, 37), fill="#d9600a", outline="")
+        self.create_oval(*P(17, 9, 37, 37), fill="#d9600a", outline="")
+        self.create_oval(*P(9, 8, 31, 38), fill="#ff7a1a", outline="")
+        self.create_oval(*P(14, 9, 26, 37), fill="#ff8c33", outline="")
+        self.create_polygon(*P(18, 9, 19, 3, 23, 1, 24, 3, 21, 4, 21, 9), fill="#5d8a2e", outline="")
+        self.face = [
+            self.create_polygon(*P(10, 18, 16, 18, 13, 13), fill=self.GLOW[0], outline=""),
+            self.create_polygon(*P(24, 18, 30, 18, 27, 13), fill=self.GLOW[0], outline=""),
+            self.create_polygon(*P(18.5, 23, 21.5, 23, 20, 20), fill=self.GLOW[0], outline=""),
+            self.create_polygon(*P(9, 26, 12, 28, 14, 26, 16, 29, 18, 27, 20, 30, 22, 27, 24, 29, 26, 26,
+                                   28, 28, 31, 26, 29, 31, 25, 33.5, 20, 34.5, 15, 33.5, 11, 31),
+                                fill=self.GLOW[0], outline=""),
+        ]
+        self._flicker()
+
+    def _flicker(self):
+        import random
+        col = random.choice(self.GLOW)
+        for f in self.face:
+            self.itemconfigure(f, fill=col)
+        self.after(random.randint(90, 260), self._flicker)
+
+
+class NightScene(tk.Canvas):
+    """Sidebar night sky: moon, twinkling stars, a graveyard, bats that flee your
+    cursor (click one to make it vanish) and a spider that drops down to say hi."""
+    TICK = 45
+
+    def __init__(self, master):
+        super().__init__(master, bg=C["side"], highlightthickness=0, bd=0, height=10)
+        import random
+        self.rnd = random.Random()
+        self.k = _scale(master)
+        self.w = self.h = 0
+        self.mouse = None
+        self.bats, self.poofs, self.stars = [], [], []
+        self.spider_y = 0.0
+        self.t = 0
+        self.bind("<Configure>", self._layout)
+        self.bind("<Motion>", lambda e: setattr(self, "mouse", (e.x, e.y)))
+        self.bind("<Leave>", lambda e: setattr(self, "mouse", None))
+        self.bind("<Button-1>", self._click)
+        self.configure(cursor="hand2")
+        self.after(self.TICK, self._tick)
+
+    # ---------------------------------------------------------- static art
+    def _layout(self, e):
+        if (e.width, e.height) == (self.w, self.h):
+            return
+        self.w, self.h = e.width, e.height
+        self.delete("all")
+        w, h, k = self.w, self.h, self.k
+        if h < 60 * k:
+            return
+        ground = h - 34 * k
+        bands = 40
+        for i in range(bands):                       # sky fades into a purple haze
+            t = (i / bands) ** 1.8
+            y0, y1 = ground * i / bands, ground * (i + 1) / bands + 1
+            self.create_rectangle(0, y0, w, y1, fill=_blend(C["side"], "#3a1c50", t), outline="")
+        self.stars = []
+        for _ in range(int(w * ground / (900 * k * k)) + 6):
+            x, y = self.rnd.uniform(4, w - 4), self.rnd.uniform(4, ground * 0.7)
+            r = self.rnd.choice((0.8, 1.0, 1.3)) * k
+            self.stars.append(self.create_oval(x - r, y - r, x + r, y + r, fill="#8f80a8", outline=""))
+        mx, my, mr = w * 0.7, min(ground * 0.36, 80 * k), 17 * k
+        sky = _blend(C["side"], "#3a1c50", (my / ground) ** 1.8)
+        for i in range(12, 0, -1):                   # soft moon glow
+            rr = mr + i * 1.7 * k
+            self.create_oval(mx - rr, my - rr, mx + rr, my + rr, outline="",
+                             fill=_blend(sky, "#c9b27a", ((13 - i) / 13) ** 2.2 * 0.45))
+        self.create_oval(mx - mr, my - mr, mx + mr, my + mr, fill="#f4e6b4", outline="")
+        for cx, cy, cr in ((-6, -5, 4), (5, 3, 5), (-3, 8, 2.5), (8, -8, 2)):
+            self.create_oval(mx + (cx - cr) * k, my + (cy - cr) * k, mx + (cx + cr) * k, my + (cy + cr) * k,
+                             fill="#e3d29a", outline="")
+        # bare tree
+        tx = w * 0.16
+        self.create_line(tx, ground + 4 * k, tx + 2 * k, ground - 58 * k, fill="#07040b", width=5 * k)
+        for (x0, y0, x1, y1, wd) in ((2, -40, -18, -62, 3), (2, -48, 22, -70, 3), (-10, -53, -20, -60, 2),
+                                     (14, -61, 26, -64, 2), (2, -30, 18, -42, 2.5), (2, -58, 6, -76, 2)):
+            self.create_line(tx + x0 * k, ground + y0 * k, tx + x1 * k, ground + y1 * k,
+                             fill="#07040b", width=wd * k, capstyle="round")
+        # hill + tombstones + pumpkin
+        pts = []
+        for i in range(25):
+            x = w * i / 24
+            pts += [x, ground - (6 + 5 * __import__("math").sin(i / 3.2)) * k]
+        self.create_polygon(0, h, *pts, w, h, fill="#07040b", outline="")
+        for gx, gh in ((0.42, 22), (0.6, 17), (0.84, 24)):
+            x = w * gx
+            top = ground - gh * k
+            self.create_rectangle(x - 8 * k, top + 6 * k, x + 8 * k, ground + 4 * k, fill="#2a2036", outline="")
+            self.create_oval(x - 8 * k, top, x + 8 * k, top + 13 * k, fill="#2a2036", outline="")
+            self.create_line(x, top + 5 * k, x, top + 15 * k, fill="#3d3150", width=2 * k)
+            self.create_line(x - 4 * k, top + 8 * k, x + 4 * k, top + 8 * k, fill="#3d3150", width=2 * k)
+        px, py = w * 0.72, ground + 6 * k
+        self.glow = self.create_oval(px - 16 * k, py - 10 * k, px + 16 * k, py + 12 * k,
+                                     fill=_blend("#07040b", "#ff7a1a", 0.18), outline="")
+        self.create_oval(px - 8 * k, py - 6 * k, px + 8 * k, py + 6 * k, fill="#ff7a1a", outline="")
+        self.create_line(px, py - 6 * k, px + 1 * k, py - 9 * k, fill="#5d8a2e", width=2 * k)
+        self.p_face = self.create_polygon(px - 4 * k, py - 1 * k, px - 1 * k, py - 1 * k, px - 2.5 * k, py - 3.5 * k,
+                                          fill="#ffd23f", outline="")
+        self.p_face2 = self.create_polygon(px + 1 * k, py - 1 * k, px + 4 * k, py - 1 * k, px + 2.5 * k, py - 3.5 * k,
+                                           fill="#ffd23f", outline="")
+        self.ground = ground
+        self.bats = [self._new_bat(x=self.rnd.uniform(0, w)) for _ in range(4)]
+        self.spider_y = 8 * k
+        self.thread = self.create_line(w * 0.32, 0, w * 0.32, self.spider_y, fill="#5a4b6b", width=1)
+        self.spider = []
+
+    # ---------------------------------------------------------------- bats
+    def _new_bat(self, x=None):
+        k = self.k
+        return {"x": -20 * k if x is None else x, "y": self.rnd.uniform(14 * k, self.ground * 0.62),
+                "vx": self.rnd.uniform(0.5, 1.3) * k, "vy": 0.0, "ph": self.rnd.uniform(0, 6.28),
+                "s": self.rnd.uniform(0.8, 1.15) * k, "id": None}
+
+    UP = (-10, -4, -6, -1, -3, -3, 0, 0, 3, -3, 6, -1, 10, -4, 7, 2, 3, 1, 0, 3, -3, 1, -7, 2)
+    DOWN = (-10, 5, -6, 3, -3, 1, 0, 0, 3, 1, 6, 3, 10, 5, 6, 5, 3, 3, 0, 3, -3, 3, -6, 5)
+
+    def _bat_points(self, b):
+        shape = self.UP if int(self.t / 3 + b["ph"] * 3) % 2 else self.DOWN
+        return [b["x"] + v * b["s"] if i % 2 == 0 else b["y"] + v * b["s"] for i, v in enumerate(shape)]
+
+    def _click(self, e):
+        for b in self.bats:
+            if b["id"] and abs(b["x"] - e.x) < 16 * self.k and abs(b["y"] - e.y) < 12 * self.k:
+                self.delete(b["id"])
+                for i in range(7):
+                    ang = i * 6.283 / 7
+                    self.poofs.append({"x": b["x"], "y": b["y"], "dx": __import__("math").cos(ang) * 2 * self.k,
+                                       "dy": __import__("math").sin(ang) * 2 * self.k, "life": 12, "id": None})
+                b.update(self._new_bat(), respawn=self.t + self.rnd.randint(40, 120))
+                return
+
+    # ---------------------------------------------------------------- loop
+    def _tick(self):
+        self.after(self.TICK, self._tick)
+        if not self.winfo_ismapped() or not self.w or self.h < 60 * self.k:
+            return
+        import math
+        self.t += 1
+        k = self.k
+        if self.stars and self.t % 4 == 0:
+            self.itemconfigure(self.rnd.choice(self.stars), fill=self.rnd.choice(("#8f80a8", "#c9bde0", "#5e5174", "#f4ebdd")))
+        if self.t % 5 == 0 and hasattr(self, "p_face"):
+            col = self.rnd.choice(PumpkinLogo.GLOW)
+            self.itemconfigure(self.p_face, fill=col)
+            self.itemconfigure(self.p_face2, fill=col)
+        for b in self.bats:
+            if b.get("respawn", 0) > self.t:
+                continue
+            if self.mouse:
+                dx, dy = b["x"] - self.mouse[0], b["y"] - self.mouse[1]
+                d = math.hypot(dx, dy)
+                if d < 46 * k:                         # flee the cursor
+                    f = (46 * k - d) / (46 * k) * 1.6 * k
+                    b["vx"] += dx / (d + 1) * f
+                    b["vy"] += dy / (d + 1) * f
+            b["vx"] = max(-4 * k, min(4 * k, b["vx"] * 0.96 + 0.04 * 0.9 * k))
+            b["vy"] *= 0.9
+            b["x"] += b["vx"]
+            b["y"] += b["vy"] + math.sin(self.t / 6 + b["ph"]) * 0.6 * k
+            b["y"] = max(8 * k, min(self.ground - 26 * k, b["y"]))
+            if b["x"] > self.w + 24 * k or b["x"] < -40 * k:
+                b.update(self._new_bat())
+                if b["id"]:
+                    self.delete(b["id"])
+                    b["id"] = None
+            pts = self._bat_points(b)
+            if b["id"] is None:
+                b["id"] = self.create_polygon(*pts, fill="#050308", outline="")
+            else:
+                self.coords(b["id"], *pts)
+        for p in list(self.poofs):
+            p["life"] -= 1
+            p["x"] += p["dx"]
+            p["y"] += p["dy"]
+            r = (3 - p["life"] / 6) * k
+            col = _blend("#c9bde0", C["side"], 1 - p["life"] / 12)
+            if p["id"] is None:
+                p["id"] = self.create_oval(0, 0, 0, 0, fill=col, outline="")
+            self.coords(p["id"], p["x"] - r, p["y"] - r, p["x"] + r, p["y"] + r)
+            self.itemconfigure(p["id"], fill=col)
+            if p["life"] <= 0:
+                self.delete(p["id"])
+                self.poofs.remove(p)
+        # spider follows your cursor down its thread
+        target = min(self.mouse[1], self.ground * 0.55) if self.mouse else 8 * k
+        self.spider_y += (target - self.spider_y) * 0.08
+        sx, sy = self.w * 0.32, self.spider_y
+        self.coords(self.thread, sx, 0, sx, sy)
+        for i in self.spider:
+            self.delete(i)
+        wig = math.sin(self.t / 3) * 1.5 * k
+        sp = []
+        for side in (-1, 1):
+            for j, (lx, ly) in enumerate(((7, -4), (8, -1), (8, 2), (7, 5))):
+                bend = wig if j % 2 else -wig
+                sp.append(self.create_line(sx, sy + 2 * k, sx + side * 4 * k, sy + (ly - 2) * k + bend,
+                                           sx + side * lx * k, sy + (ly + 2) * k, fill="#1b1424", width=1.4 * k,
+                                           smooth=True))
+        sp.append(self.create_oval(sx - 4 * k, sy - 1 * k, sx + 4 * k, sy + 7 * k, fill="#1b1424", outline=""))
+        sp.append(self.create_oval(sx - 3 * k, sy - 4 * k, sx + 3 * k, sy + 1 * k, fill="#241a30", outline=""))
+        sp.append(self.create_oval(sx - 2 * k, sy - 2.5 * k, sx - 0.6 * k, sy - 1.1 * k, fill="#ff4d6d", outline=""))
+        sp.append(self.create_oval(sx + 0.6 * k, sy - 2.5 * k, sx + 2 * k, sy - 1.1 * k, fill="#ff4d6d", outline=""))
+        self.spider = sp
+
+
 # ============================================================ widgets
 class NavItem(ctk.CTkFrame):
     def __init__(self, master, icon, text, command):
@@ -204,7 +463,7 @@ class NavItem(ctk.CTkFrame):
         self.lb = ctk.CTkLabel(self, text=text, anchor="w", font=F(13), text_color=C["muted"])
         self.lb.grid(row=0, column=2, sticky="w")
         self.badge = ctk.CTkLabel(self, text="", font=F(11, "bold"), corner_radius=9, height=20,
-                                  width=26, fg_color=C["accent"], text_color="#ffffff")
+                                  width=26, fg_color=C["accent"], text_color=C["on_accent"])
         for w in (self, self.ic, self.lb, self.badge):
             w.bind("<Button-1>", lambda e: self.command())
             w.bind("<Enter>", self._enter)
@@ -235,7 +494,7 @@ class NavItem(ctk.CTkFrame):
     def set_badge(self, n, kind="accent"):
         if n:
             self.badge.configure(text=str(n), fg_color=C[kind],
-                                 text_color="#111111" if kind == "warn" else "#ffffff")
+                                 text_color="#111111" if kind == "warn" else C["on_accent"])
             self.badge.grid(row=0, column=3, padx=(0, 10))
         else:
             self.badge.grid_remove()
@@ -254,7 +513,7 @@ def set_pill(p, text, kind):
 
 def Btn(master, text, command, kind="primary", width=None, **kw):
     styles = {
-        "primary": dict(fg_color=C["accent"], hover_color=C["accent_h"], text_color="#ffffff"),
+        "primary": dict(fg_color=C["accent"], hover_color=C["accent_h"], text_color=C["on_accent"]),
         "secondary": dict(fg_color=C["card2"], hover_color=C["hover"], text_color=C["text"],
                           border_width=1, border_color=C["border"]),
         "ghost": dict(fg_color="transparent", hover_color=C["hover"], text_color=C["muted"]),
@@ -279,6 +538,14 @@ class App:
         root.configure(fg_color=C["bg"])
 
         self.cfg = _load_json(CONFIG_PATH, {})
+        apply_theme(self.cfg.get("theme", "halloween"))
+        global TITLE_FAMILY
+        try:
+            import tkinter.font as tkfont
+            if THEME == "halloween" and "Chiller" in tkfont.families(root):
+                TITLE_FAMILY = "Chiller"
+        except Exception:
+            pass
         self.cfg.setdefault("watches", [])
         self.history = _load_json(HISTORY_PATH, [])
 
@@ -351,7 +618,7 @@ class App:
         st.map("Dark.Treeview.Heading", background=[("active", C["card"])],
                foreground=[("active", C["muted"])])
         st.map("Dark.Treeview", background=[("selected", C["select"])],
-               foreground=[("selected", "#ffffff")])
+               foreground=[("selected", C["sel_text"])])
         st.layout("Dark.Treeview", [("Treeview.treearea", {"sticky": "nswe"})])
 
     def _table(self, parent, columns, widths, tree_col=None):
@@ -374,7 +641,7 @@ class App:
         tree.configure(yscrollcommand=sb.set)
         tree.grid(row=0, column=0, sticky="nsew", padx=(8, 0), pady=8)
         sb.grid(row=0, column=1, sticky="ns", padx=(2, 6), pady=10)
-        tree.tag_configure("odd", background="#191e25")
+        tree.tag_configure("odd", background=_blend(C["card"], C["card2"], 0.35))
         tree.tag_configure("hover", background=C["hover"])
         tree.bind("<Motion>", lambda e, t=tree: self._row_hover(t, t.identify_row(e.y)))
         tree.bind("<Leave>", lambda e, t=tree: self._row_hover(t, None))
@@ -395,7 +662,8 @@ class App:
         h = ctk.CTkFrame(page, fg_color="transparent")
         h.grid(row=0, column=0, sticky="ew", pady=(0, 16))
         h.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(h, text=title, font=F(24, "bold"), text_color=C["text"]).grid(
+        tf = ctk.CTkFont(family=TITLE_FAMILY, size=34) if TITLE_FAMILY != FAMILY else F(24, "bold")
+        ctk.CTkLabel(h, text=title, font=tf, text_color=C["accent"] if THEME == "halloween" else C["text"]).grid(
             row=0, column=0, sticky="w")
         var = tk.StringVar(value=subtitle)
         ctk.CTkLabel(h, textvariable=var, font=F(12), text_color=C["muted"]).grid(
@@ -432,8 +700,11 @@ class App:
 
         brand = ctk.CTkFrame(sb, fg_color="transparent")
         brand.grid(row=0, column=0, sticky="ew", padx=18, pady=(22, 26))
-        ctk.CTkLabel(brand, text="⇪", width=38, height=38, corner_radius=11, fg_color=C["accent"],
-                     text_color="#ffffff", font=F(19, "bold")).grid(row=0, column=0, rowspan=2)
+        if THEME == "halloween":
+            PumpkinLogo(brand).grid(row=0, column=0, rowspan=2)
+        else:
+            ctk.CTkLabel(brand, text="⇪", width=38, height=38, corner_radius=11, fg_color=C["accent"],
+                         text_color=C["on_accent"], font=F(19, "bold")).grid(row=0, column=0, rowspan=2)
         ctk.CTkLabel(brand, text="Mod Manager", font=F(15, "bold"), text_color=C["text"]).grid(
             row=0, column=1, sticky="w", padx=(10, 0))
         ctk.CTkLabel(brand, text=f"for MediaFire  ·  v{VERSION}", font=F(11), text_color=C["muted"]).grid(
@@ -456,7 +727,19 @@ class App:
         n.grid(row=7, column=0, sticky="ew", padx=12, pady=2)
         self.nav["updates"] = n
 
-        acct.grid(row=9, column=0, sticky="ew", padx=12, pady=14)
+        if THEME == "halloween":
+            NightScene(sb).grid(row=8, column=0, sticky="nsew", pady=(14, 0))
+        tsw = ctk.CTkFrame(sb, fg_color="transparent")
+        tsw.grid(row=9, column=0, sticky="ew", padx=12, pady=(12, 0))
+        ctk.CTkLabel(tsw, text="THEME", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", padx=12, pady=(0, 4))
+        self.theme_seg = ctk.CTkSegmentedButton(
+            tsw, values=list(THEME_LABELS.values()), command=self._choose_theme, height=30, corner_radius=9,
+            font=F(12), fg_color=C["card"], selected_color=C["accent"], selected_hover_color=C["accent_h"],
+            unselected_color=C["card"], unselected_hover_color=C["hover"], text_color=C["text"],
+            text_color_disabled=C["dim"])
+        self.theme_seg.set(THEME_LABELS[THEME])
+        self.theme_seg.pack(fill="x")
+        acct.grid(row=10, column=0, sticky="ew", padx=12, pady=14)
         acct.grid_columnconfigure(1, weight=1)
         self.avatar = ctk.CTkLabel(acct, text="?", width=34, height=34, corner_radius=17,
                                    fg_color=C["accent_soft"], text_color=C["accent"], font=F(14, "bold"))
@@ -471,6 +754,28 @@ class App:
                                         fg_color="transparent", hover_color=C["hover"],
                                         text_color=C["muted"], font=F(11), command=self._logout)
         self.logout_btn.grid(row=1, column=2, padx=(0, 8), pady=(0, 8))
+
+    def _choose_theme(self, label):
+        name = next(k for k, v in THEME_LABELS.items() if v == label)
+        if name == THEME:
+            return
+        busy = any(st in ("queued", "active") for st in self.job_state.values())
+        msg = "The app restarts to switch themes." + (" Unfinished uploads will stop." if busy else "")
+        if not self.confirm(f"Switch to {label}?", msg, "Restart now", danger=busy):
+            self.theme_seg.set(THEME_LABELS[THEME])
+            return
+        self.cfg["theme"] = name
+        _save_json(CONFIG_PATH, self.cfg)
+        self._restart()
+
+    def _restart(self):
+        import subprocess
+        if updater.is_frozen():
+            args = [sys.executable]
+        else:
+            args = [sys.executable, os.path.abspath(sys.argv[0])]
+        subprocess.Popen(args, close_fds=True, cwd=os.path.dirname(os.path.abspath(args[-1])))
+        self._quit_for_update()
 
     def show_page(self, name):
         if self.page == name:
@@ -525,7 +830,7 @@ class App:
         # options
         opts = ctk.CTkFrame(pg, fg_color="transparent")
         opts.grid(row=2, column=0, sticky="ew", pady=(12, 14))
-        sw = dict(onvalue=True, offvalue=False, progress_color=C["accent"], button_color="#ffffff",
+        sw = dict(onvalue=True, offvalue=False, progress_color=C["accent"], button_color=C["knob"],
                   button_hover_color="#dfe6f5", fg_color=C["card2"], font=F(12), text_color=C["text"],
                   command=self._save_opts)
         ctk.CTkSwitch(opts, text="Zip folders before upload", variable=self.zip_var, **sw).pack(side="left")
@@ -589,7 +894,7 @@ class App:
         self._dragging = on
         if on:
             self.dz.configure(border_color=C["accent"], fg_color=C["accent_soft"])
-            self.dz_icon.configure(fg_color=C["accent"], text_color="#ffffff")
+            self.dz_icon.configure(fg_color=C["accent"], text_color=C["on_accent"])
             self.dz_title.configure(text="Release to upload")
         else:
             self.dz.configure(border_color=C["border"], fg_color=C["card"])
@@ -782,8 +1087,11 @@ class App:
         card.place(relx=0.5, rely=0.5, anchor="center")
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(padx=36, pady=32)
-        ctk.CTkLabel(inner, text="⇪", width=52, height=52, corner_radius=14, fg_color=C["accent"],
-                     text_color="#ffffff", font=F(24, "bold")).pack()
+        if THEME == "halloween":
+            PumpkinLogo(inner, size=56, bg=C["card"]).pack()
+        else:
+            ctk.CTkLabel(inner, text="⇪", width=52, height=52, corner_radius=14, fg_color=C["accent"],
+                         text_color=C["on_accent"], font=F(24, "bold")).pack()
         ctk.CTkLabel(inner, text="Sign in to MediaFire", font=F(20, "bold"), text_color=C["text"]).pack(
             pady=(16, 2))
         ctk.CTkLabel(inner, text="Use the email and password for your MediaFire account",
@@ -1016,7 +1324,7 @@ class App:
     # ============================================================= menus
     def _make_menus(self):
         mk = lambda: tk.Menu(self.root, tearoff=0, bg=C["card2"], fg=C["text"], activebackground=C["accent"],
-                             activeforeground="#ffffff", bd=0, relief="flat", font=(FAMILY, 10))
+                             activeforeground=C["on_accent"], bd=0, relief="flat", font=(FAMILY, 10))
         self.menu = mk()
         self.menu.add_command(label="  Copy link", command=self._copy_link)
         self.menu.add_command(label="  Open in browser", command=self._open_link)
@@ -1479,7 +1787,7 @@ class App:
                     "info" if label.startswith(("Uploading", "Changing")) else "ok")
             set_pill(c["pill"], label, kind)
             c["card"].configure(border_color="#4a3a17" if kind == "warn" else C["border"])
-            c["up"].configure(**(dict(fg_color=C["accent"], hover_color=C["accent_h"], text_color="#fff",
+            c["up"].configure(**(dict(fg_color=C["accent"], hover_color=C["accent_h"], text_color=C["on_accent"],
                                       border_width=0) if kind == "warn" else
                                  dict(fg_color=C["card2"], hover_color=C["hover"], text_color=C["text"],
                                       border_width=1)))
@@ -1766,7 +2074,7 @@ class App:
         top = ctk.CTkFrame(f, fg_color="transparent")
         top.pack(fill="x")
         ctk.CTkLabel(top, text="⇪", width=48, height=48, corner_radius=14, fg_color=C["accent"],
-                     text_color="#ffffff", font=F(22, "bold")).pack(side="left", padx=(0, 14))
+                     text_color=C["on_accent"], font=F(22, "bold")).pack(side="left", padx=(0, 14))
         tf = ctk.CTkFrame(top, fg_color="transparent")
         tf.pack(side="left", fill="x")
         ctk.CTkLabel(tf, text=f"Version {info['version']} is available", font=F(18, "bold"),

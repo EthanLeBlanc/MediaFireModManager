@@ -4,6 +4,8 @@ A Windows app for uploading mods to MediaFire. You drag and drop files, and upda
 
 ![Files page](docs/files.png)
 
+![Halloween theme](docs/halloween.png)
+
 ## Download
 
 Get **MediaFireModManager.exe** from the [latest release](../../releases/latest) and run it. You don't need to install anything. After that the app keeps itself up to date.
@@ -15,6 +17,7 @@ Get **MediaFireModManager.exe** from the [latest release](../../releases/latest)
 - **Auto-zip.** Dropping `BPRacingTennis` uploads `BPRacingTennis.zip`, with the folder at the top level inside.
 - **History.** Every upload is logged with its time, your version note, its size and its link.
 - **Watched folders.** When a mod changes on your PC, the app tells you. Turn on Auto and it uploads by itself.
+- **Themes.** Use the switch at the bottom of the sidebar to pick Midnight or Halloween. The Halloween theme has a flickering jack-o'-lantern and a night-sky scene where bats dodge your cursor.
 - **Self-updating.** When the app opens it checks for a newer release here, shows what's new and installs it.
 
 | Uploads | Watched | Update prompt |
