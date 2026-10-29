@@ -3,6 +3,10 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.3.1
+- Fixed the "How a new version gets here" steps showing as an empty black box on Windows
+- Clearer message when the app can't see releases on GitHub
+
 ## 2.3.0
 - Halloween theme: pumpkin orange and midnight purple, a flickering jack-o'-lantern logo, and a night-sky scene in the sidebar
 - Bats in the sidebar scene fly away from your cursor, and clicking one makes it vanish in a puff; a spider drops down on its thread to follow you

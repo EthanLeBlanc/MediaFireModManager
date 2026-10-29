@@ -107,7 +107,8 @@ def fetch_github_info(repo, http=None):
                  headers={"Accept": "application/vnd.github+json", "User-Agent": UA,
                           "X-GitHub-Api-Version": "2022-11-28"})
     if r.status_code == 404:
-        raise UpdateError("No releases on GitHub yet.")
+        raise UpdateError("Couldn't see any releases on GitHub. If the repo is private, make it "
+                          "public so the app can find new versions.")
     if r.status_code in (403, 429):
         raise UpdateError("GitHub is limiting update checks right now. Try again later.")
     r.raise_for_status()

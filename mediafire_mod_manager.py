@@ -1943,12 +1943,14 @@ class App:
         pb = self._card(pg, 3)
         ctk.CTkLabel(pb, text="Publish a new version", font=F(14, "bold"), text_color=C["text"],
                      anchor="w").grid(row=0, column=0, sticky="w", padx=20, pady=(16, 0))
-        ctk.CTkLabel(pb, text="1.  Run build.bat and give it a higher version number\n"
-                              "2.  Click Publish and pick the new exe from the dist folder\n"
-                              "3.  Every copy of the app gets asked to update the next time it opens",
-                     font=F(12), text_color=C["muted"], anchor="w", justify="left").grid(
-            row=1, column=0, sticky="w", padx=20, pady=(6, 18))
-        Btn(pb, "Publish new version…", self._publish, "primary").grid(row=0, column=1, rowspan=2,
+        steps = ("1.  Run build.bat and give it a higher version number",
+                 "2.  Click Publish and pick the new exe from the dist folder",
+                 "3.  Every copy of the app gets asked to update the next time it opens")
+        for i, line in enumerate(steps):
+            ctk.CTkLabel(pb, text=line, font=F(12), text_color=C["muted"], anchor="w",
+                         fg_color=C["card"]).grid(row=1 + i, column=0, sticky="w", padx=20,
+                                                  pady=(6 if i == 0 else 0, 18 if i == len(steps) - 1 else 0))
+        Btn(pb, "Publish new version…", self._publish, "primary").grid(row=0, column=1, rowspan=4,
                                                                        sticky="e", padx=20)
         self._set_upd_status("idle")
 
@@ -1969,11 +1971,13 @@ class App:
         how = self._card(pg, 3)
         ctk.CTkLabel(how, text="How a new version gets here", font=F(14, "bold"), text_color=C["text"],
                      anchor="w").grid(row=0, column=0, sticky="w", padx=20, pady=(16, 0))
-        ctk.CTkLabel(how, text="1.  Changes are pushed to GitHub with a higher version number\n"
-                               "2.  GitHub builds the exe by itself and posts it as a release\n"
-                               "3.  Every copy of the app is asked to update the next time it opens",
-                     font=F(12), text_color=C["muted"], anchor="w", justify="left").grid(
-            row=1, column=0, sticky="w", padx=20, pady=(6, 18))
+        steps = ("1.  Changes are pushed to GitHub with a higher version number",
+                 "2.  GitHub builds the exe by itself and posts it as a release",
+                 "3.  Every copy of the app is asked to update the next time it opens")
+        for i, line in enumerate(steps):          # one label per line (multi-line labels can fail to paint on Windows)
+            ctk.CTkLabel(how, text=line, font=F(12), text_color=C["muted"], anchor="w",
+                         fg_color=C["card"]).grid(row=1 + i, column=0, sticky="w", padx=20,
+                                                  pady=(6 if i == 0 else 0, 18 if i == len(steps) - 1 else 0))
 
     def _save_upd_opts(self):
         self.cfg["auto_update_check"] = self.auto_upd_var.get()
