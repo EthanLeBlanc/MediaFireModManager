@@ -129,7 +129,8 @@ def fetch_github_info(repo, http=None):
         except Exception:
             sha = None
     return {"version": str(rel.get("tag_name", "")).lstrip("vV"),
-            "exe_link": exe["browser_download_url"], "sha256": sha, "size": exe.get("size"),
+            "exe_link": exe["browser_download_url"], "asset_api": exe.get("url"),
+            "sha256": sha, "size": exe.get("size"),
             "notes": (rel.get("body") or "").strip(), "released": (rel.get("published_at") or "")[:10],
             "page": rel.get("html_url")}
 
@@ -156,7 +157,16 @@ def download_exe(info, dest_dir=None, progress=None, http=None):
     dest_dir = dest_dir or os.path.join(tempfile.gettempdir(), "MediaFireModManager_update")
     os.makedirs(dest_dir, exist_ok=True)
     dest = os.path.join(dest_dir, "MediaFireModManager_new.exe")
-    r = _open(info["exe_link"], http, stream=True)
+    r = None
+    if info.get("asset_api"):          # GitHub: the API download route works on every network
+        try:
+            r = http.get(info["asset_api"], stream=True, timeout=60, allow_redirects=True,
+                         headers={"Accept": "application/octet-stream", "User-Agent": UA})
+            r.raise_for_status()
+        except Exception:
+            r = None
+    if r is None:
+        r = _open(info["exe_link"], http, stream=True)
     total = int(r.headers.get("Content-Length") or info.get("size") or 0)
     h, done = hashlib.sha256(), 0
     with open(dest, "wb") as f:
