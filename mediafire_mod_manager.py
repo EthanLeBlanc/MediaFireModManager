@@ -774,7 +774,7 @@ class App:
             args = [sys.executable]
         else:
             args = [sys.executable, os.path.abspath(sys.argv[0])]
-        subprocess.Popen(args, close_fds=True, cwd=os.path.dirname(os.path.abspath(args[-1])))
+        updater.launch_fresh(args, cwd=os.path.dirname(os.path.abspath(args[-1])))
         self._quit_for_update()
 
     def show_page(self, name):

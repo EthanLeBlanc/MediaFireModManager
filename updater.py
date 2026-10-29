@@ -192,6 +192,11 @@ def download_exe(info, dest_dir=None, progress=None, http=None):
 # ------------------------------------------------------------ install
 SWAP_SCRIPT = r"""@echo off
 setlocal
+set "_PYI_APPLICATION_HOME_DIR="
+set "_PYI_ARCHIVE_FILE="
+set "_PYI_PARENT_PROCESS_LEVEL="
+set "_MEIPASS2="
+set "PYINSTALLER_RESET_ENVIRONMENT=1"
 set "NEW={new}"
 set "TARGET={target}"
 set /a tries=0
@@ -208,6 +213,29 @@ start "" "%TARGET%"
 """
 
 
+def clean_env():
+    """Environment for starting a fresh copy of the exe.
+
+    A PyInstaller one-file exe unpacks itself to a temp folder (_MEIxxxx) and sets
+    variables pointing there. If the new exe inherits them it thinks it's a child of
+    the old one and tries to load python3xx.dll from the old (now deleted) folder:
+    "Failed to load Python DLL ... _MEIxxxx\\python312.dll". So strip them all.
+    """
+    env = dict(os.environ)
+    mei = getattr(sys, "_MEIPASS", "") or ""
+    for key in list(env):
+        if key.startswith(("_PYI_", "_MEIPASS")) or (mei and mei.lower() in env[key].lower()):
+            env.pop(key, None)
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
+def launch_fresh(args, cwd=None):
+    """Start a new, independent copy of the app."""
+    flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0   # DETACHED_PROCESS | NEW_PROCESS_GROUP
+    subprocess.Popen(args, env=clean_env(), cwd=cwd, close_fds=True, creationflags=flags)
+
+
 def install_and_restart(new_exe, target=None):
     """Start the swap script, then the caller must quit the app straight away."""
     if os.name != "nt":
@@ -217,7 +245,7 @@ def install_and_restart(new_exe, target=None):
     with open(script, "w", encoding="mbcs" if os.name == "nt" else "utf-8") as f:
         f.write(SWAP_SCRIPT.format(new=new_exe, target=target))
     flags = 0x08000000 | 0x00000200          # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
-    subprocess.Popen(["cmd", "/c", script], creationflags=flags, close_fds=True,
+    subprocess.Popen(["cmd", "/c", script], creationflags=flags, close_fds=True, env=clean_env(),
                      cwd=os.path.dirname(target))
 
 
