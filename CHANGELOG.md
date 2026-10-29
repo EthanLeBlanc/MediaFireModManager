@@ -3,6 +3,9 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.3.3
+- Fixed the last step on the Updates page showing as an empty black bar on Windows
+
 ## 2.3.2
 - Fixed "Failed to load Python DLL" when the app restarts itself after an update or a theme switch
 
