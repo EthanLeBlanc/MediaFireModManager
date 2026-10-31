@@ -3,6 +3,9 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.5.0
+- New Terps WorkFlow logo (black-and-white TW monogram) in the title bar, taskbar, on the exe, in the sidebar and on the sign-in screen
+
 ## 2.4.1
 - Fixed the "Failed to remove temporary directory" warning after updating or switching themes
 - Wider sidebar so the app name, version and settings button fit

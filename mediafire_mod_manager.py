@@ -262,15 +262,54 @@ def _icon(kind, s=18):
     return img
 
 
+def asset(name):
+    """Path to a bundled file in assets/ (inside the exe or next to the script)."""
+    base = getattr(sys, "_MEIPASS", None) or os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "assets", name)
+
+
+def set_window_icon(win):
+    """Our logo in the title bar / taskbar instead of the CustomTkinter default."""
+    try:
+        if os.name == "nt" and os.path.exists(asset("terps_workflow.ico")):
+            win.iconbitmap(asset("terps_workflow.ico"))
+        elif os.path.exists(asset("logo_64.png")):
+            win._icon_img = tk.PhotoImage(file=asset("logo_64.png"))
+            win.iconphoto(False, win._icon_img)
+    except Exception:
+        pass
+
+
+def logo_image(master, size):
+    """The logo as a Tk image close to `size` px (picks the best bundled PNG for the screen scale)."""
+    want = size * _scale(master)
+    for px in (40, 64, 80, 256):
+        if px >= want - 2:
+            break
+    try:
+        return tk.PhotoImage(file=asset(f"logo_{px}.png"))
+    except Exception:
+        return None
+
+
 def make_root():
     ctk.set_appearance_mode("dark")
+    if os.name == "nt":
+        try:   # own taskbar button/icon instead of being grouped as "python"
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Terps.WorkFlow")
+        except Exception:
+            pass
     if HAVE_DND:
         class Root(ctk.CTk, TkinterDnD.DnDWrapper):
             def __init__(self):
                 super().__init__()
                 self.TkdndVersion = TkinterDnD._require(self)
-        return Root()
-    return ctk.CTk()
+        root = Root()
+    else:
+        root = ctk.CTk()
+    set_window_icon(root)
+    return root
 
 
 def _inside(widget, parent):
@@ -763,8 +802,13 @@ class App:
         if THEME == "halloween":
             PumpkinLogo(brand).grid(row=0, column=0, rowspan=2)
         else:
-            ctk.CTkLabel(brand, text="⇪", width=38, height=38, corner_radius=11, fg_color=C["accent"],
-                         text_color=C["on_accent"], font=F(19, "bold")).grid(row=0, column=0, rowspan=2)
+            self._brand_img = logo_image(brand, 40)
+            if self._brand_img:
+                tk.Label(brand, image=self._brand_img, bg=C["side"], bd=0, highlightthickness=0).grid(
+                    row=0, column=0, rowspan=2)
+            else:
+                ctk.CTkLabel(brand, text="⇪", width=38, height=38, corner_radius=11, fg_color=C["accent"],
+                             text_color=C["on_accent"], font=F(19, "bold")).grid(row=0, column=0, rowspan=2)
         ctk.CTkLabel(brand, text=APP_NAME, font=F(15, "bold"), text_color=C["text"]).grid(
             row=0, column=1, sticky="w", padx=(10, 0))
         self.gear = ctk.CTkButton(brand, text="⚙", width=32, height=32, corner_radius=9, fg_color="transparent",
@@ -1163,8 +1207,12 @@ class App:
         if THEME == "halloween":
             PumpkinLogo(inner, size=56, bg=C["card"]).pack()
         else:
-            ctk.CTkLabel(inner, text="⇪", width=52, height=52, corner_radius=14, fg_color=C["accent"],
-                         text_color=C["on_accent"], font=F(24, "bold")).pack()
+            self._login_img = logo_image(inner, 64)
+            if self._login_img:
+                tk.Label(inner, image=self._login_img, bg=C["card"], bd=0, highlightthickness=0).pack()
+            else:
+                ctk.CTkLabel(inner, text="⇪", width=52, height=52, corner_radius=14, fg_color=C["accent"],
+                             text_color=C["on_accent"], font=F(24, "bold")).pack()
         ctk.CTkLabel(inner, text="Sign in to MediaFire", font=F(20, "bold"), text_color=C["text"]).pack(
             pady=(16, 2))
         ctk.CTkLabel(inner, text="Use the email and password for your MediaFire account",
@@ -1365,6 +1413,7 @@ class App:
 
     def confirm(self, title, message, ok="OK", danger=False):
         d = ctk.CTkToplevel(self.root)
+        d.after(250, lambda: set_window_icon(d))
         d.title(title)
         d.configure(fg_color=C["card"])
         d.resizable(False, False)
@@ -2303,6 +2352,7 @@ class App:
 
     def _dialog(self, title):
         d = ctk.CTkToplevel(self.root)
+        d.after(250, lambda: set_window_icon(d))
         d.title(title)
         d.configure(fg_color=C["card"])
         d.resizable(False, False)

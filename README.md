@@ -70,6 +70,7 @@ python mediafire_mod_manager.py
 | `updater.py` | checks GitHub releases, downloads and checks the new exe, swaps it in |
 | `app_version.py` | version number and update source (written by `set_version.py`) |
 | `set_version.py` | stamps the version for `build.bat` and the GitHub build |
+| `make_icon.py` | draws the logo and writes `assets/terps_workflow.ico` and the logo PNGs |
 | `release_notes.py` | pulls a version's notes out of CHANGELOG.md for the release |
 | `.github/workflows/release.yml` | builds and publishes releases |
 

@@ -14,6 +14,8 @@ if errorlevel 1 goto :fail
 echo Building exe...
 python -m PyInstaller --noconfirm --clean --onefile --windowed ^
   --name TerpsWorkFlow ^
+  --icon assets\terps_workflow.ico ^
+  --add-data "assets;assets" ^
   --collect-all tkinterdnd2 ^
   --collect-all customtkinter ^
   --hidden-import darkdetect ^
