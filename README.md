@@ -18,7 +18,7 @@ Get **TerpsWorkFlow.exe** from the [latest release](../../releases/latest) and r
 - **History.** Every upload is logged with its time, your version note, its size and its link.
 - **Watched folders.** When a mod changes on your PC, the app tells you. Turn on Auto and it uploads by itself.
 - **Storage meter.** See how much of your MediaFire storage you're using at the bottom of the sidebar; click it for details.
-- **Themes.** Click the gear next to the app name to open Settings and pick a theme: Midnight, Halloween, Terps, Ocean, Sunset, Racing, Neon or Arctic (light). The Halloween theme has a flickering jack-o'-lantern and a night-sky scene where bats dodge your cursor.
+- **Themes.** Click the gear next to the app name to open Settings and pick from 12 themes. The spooky ones (Halloween, Blood Moon, Ghostly, Witch's Brew, Candy Corn) add an animated night scene to the sidebar with bats, ghosts, a bubbling cauldron or falling candy corn. Arctic is a light theme.
 - **Self-updating.** When the app opens it checks for a newer release here, shows what's new and installs it.
 
 | Uploads | Watched | Update prompt |

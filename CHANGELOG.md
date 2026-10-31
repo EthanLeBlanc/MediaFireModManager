@@ -3,6 +3,14 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.6.0
+- Four new Halloween themes, each with its own animated sidebar scene:
+  - Blood Moon: a huge red moon over the graveyard, with bats
+  - Ghostly: little ghosts drift and flicker through rolling fog (click one to make it vanish)
+  - Witch's Brew: a bubbling cauldron under a green moon
+  - Candy Corn: candy corn falls from the sky (click to eat one)
+- Settings shows all 12 themes, six per row
+
 ## 2.5.0
 - New Terps WorkFlow logo (black-and-white TW monogram) in the title bar, taskbar, on the exe, in the sidebar and on the sign-in screen
 

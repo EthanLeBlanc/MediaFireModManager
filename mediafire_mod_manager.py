@@ -131,7 +131,65 @@ THEMES.update({
         "on_accent": "#ffffff", "knob": "#ffffff", "sel_text": "#0b1a33",
     },
 })
-THEME_LABELS = {"midnight": "Midnight", "halloween": "Halloween", "terps": "Terps", "ocean": "Ocean",
+THEMES.update({
+    "blood_moon": {
+        "bg": "#0d0506", "side": "#120708", "card": "#1b0b0d", "card2": "#241012",
+        "hover": "#2f1518", "border": "#2f1517", "border_hi": "#552429",
+        "text": "#f6e6e4", "muted": "#b99795", "dim": "#7c5c5b",
+        "accent": "#e3242b", "accent_h": "#c41a20", "accent_soft": "#3d0d10", "select": "#4a1418",
+        "ok": "#9be37a", "ok_bg": "#1a2e12", "warn": "#ffb347", "warn_bg": "#3a2810",
+        "bad": "#ff6b81", "bad_bg": "#3d1220", "info": "#d7a3ff", "info_bg": "#2a1840",
+        "on_accent": "#ffffff", "knob": "#f6e6e4", "sel_text": "#ffffff",
+    },
+    "ghostly": {
+        "bg": "#070d0d", "side": "#0a1312", "card": "#0f1b1a", "card2": "#152423",
+        "hover": "#1c302e", "border": "#1c2e2c", "border_hi": "#2f4c48",
+        "text": "#e8f6f2", "muted": "#93b3ac", "dim": "#5a7a73",
+        "accent": "#7dffcf", "accent_h": "#5ee8b8", "accent_soft": "#123a30", "select": "#173f37",
+        "ok": "#9ef0a0", "ok_bg": "#123018", "warn": "#ffd27a", "warn_bg": "#3a2e12",
+        "bad": "#ff7a8a", "bad_bg": "#3a1820", "info": "#9cc8ff", "info_bg": "#16264a",
+        "on_accent": "#06231b", "knob": "#e8f6f2", "sel_text": "#ffffff",
+    },
+    "witch": {
+        "bg": "#0b0712", "side": "#100a1a", "card": "#170f24", "card2": "#20162f",
+        "hover": "#2a1d3d", "border": "#2b1e40", "border_hi": "#4a3570",
+        "text": "#efe6ff", "muted": "#a898c6", "dim": "#6b5c8a",
+        "accent": "#8be36b", "accent_h": "#72cc52", "accent_soft": "#1d3314", "select": "#2b3a1e",
+        "ok": "#8be36b", "ok_bg": "#183012", "warn": "#ffcf4a", "warn_bg": "#3a2f0e",
+        "bad": "#ff5c8a", "bad_bg": "#3d1226", "info": "#c18cff", "info_bg": "#2b1a48",
+        "on_accent": "#0d1a06", "knob": "#efe6ff", "sel_text": "#ffffff",
+    },
+    "candy_corn": {
+        "bg": "#120a06", "side": "#170d07", "card": "#20120a", "card2": "#2a180d",
+        "hover": "#362012", "border": "#352012", "border_hi": "#5c3820",
+        "text": "#fff4e3", "muted": "#cfae8c", "dim": "#8f7258",
+        "accent": "#ff9a1f", "accent_h": "#ea8410", "accent_soft": "#3d2510", "select": "#4a2c12",
+        "ok": "#b8e36b", "ok_bg": "#243012", "warn": "#ffe066", "warn_bg": "#3a3210",
+        "bad": "#ff6b6b", "bad_bg": "#3d1616", "info": "#ffd27a", "info_bg": "#3a2c12",
+        "on_accent": "#2a1402", "knob": "#fff4e3", "sel_text": "#ffffff",
+    },
+})
+# Spooky themes get the pumpkin logo and an animated sidebar scene.
+SCENES = {
+    "halloween": dict(haze="#3a1c50", moon="#f4e6b4", crater="#e3d29a", glow="#c9b27a", star="#8f80a8",
+                      ground="#07040b", stone="#2a2036", mark="#3d3150", creature="bat", fly="#050308",
+                      item="pumpkin", spider=True, poof="#c9bde0"),
+    "blood_moon": dict(haze="#4a0d16", moon="#e0412f", crater="#b8301f", glow="#ff3b2f", star="#a07070",
+                       ground="#080304", stone="#2a1416", mark="#3d1c1f", creature="bat", fly="#050102",
+                       item="pumpkin", spider=True, poof="#ff8a80", moon_r=23),
+    "ghostly": dict(haze="#16413d", moon="#e6f4ef", crater="#c7dcd5", glow="#9fe0c8", star="#7fa39b",
+                    ground="#050c0b", stone="#1c2b29", mark="#2b403c", creature="ghost", fly="#dff5ee",
+                    item="fog", spider=False, poof="#dff5ee"),
+    "witch": dict(haze="#2b0f4a", moon="#c9f27a", crater="#a8d35a", glow="#8be36b", star="#9a85c4",
+                  ground="#07040d", stone="#221a33", mark="#342848", creature="bat", fly="#050308",
+                  item="cauldron", spider=True, poof="#8be36b"),
+    "candy_corn": dict(haze="#5a2208", moon="#fff1c9", crater="#f2dc9e", glow="#ffd27a", star="#d9a676",
+                       ground="#120704", stone="#2e1a10", mark="#47291a", creature="candy", fly=None,
+                       item="pumpkin", spider=False, poof="#ffd23f"),
+}
+THEME_LABELS = {"midnight": "Midnight", "halloween": "Halloween", "blood_moon": "Blood Moon",
+                "ghostly": "Ghostly", "witch": "Witch's Brew", "candy_corn": "Candy Corn",
+                "terps": "Terps", "ocean": "Ocean",
                 "sunset": "Sunset", "racing": "Racing", "neon": "Neon", "arctic": "Arctic (light)"}
 THEME = "midnight"
 TITLE_FAMILY = FAMILY
@@ -370,10 +428,11 @@ class NightScene(tk.Canvas):
         super().__init__(master, bg=C["side"], highlightthickness=0, bd=0, height=10)
         import random
         self.rnd = random.Random()
+        self.cfg = SCENES.get(THEME, SCENES["halloween"])
         self.k = _scale(master)
         self.w = self.h = 0
         self.mouse = None
-        self.bats, self.poofs, self.stars = [], [], []
+        self.bats, self.poofs, self.stars, self.bubbles, self.fog = [], [], [], [], []
         self.spider_y = 0.0
         self.t = 0
         self.bind("<Configure>", self._layout)
@@ -397,63 +456,149 @@ class NightScene(tk.Canvas):
         for i in range(bands):                       # sky fades into a purple haze
             t = (i / bands) ** 1.8
             y0, y1 = ground * i / bands, ground * (i + 1) / bands + 1
-            self.create_rectangle(0, y0, w, y1, fill=_blend(C["side"], "#3a1c50", t), outline="")
+            self.create_rectangle(0, y0, w, y1, fill=_blend(C["side"], self.cfg["haze"], t), outline="")
         self.stars = []
         for _ in range(int(w * ground / (900 * k * k)) + 6):
             x, y = self.rnd.uniform(4, w - 4), self.rnd.uniform(4, ground * 0.7)
             r = self.rnd.choice((0.8, 1.0, 1.3)) * k
-            self.stars.append(self.create_oval(x - r, y - r, x + r, y + r, fill="#8f80a8", outline=""))
-        mx, my, mr = w * 0.7, min(ground * 0.36, 80 * k), 17 * k
-        sky = _blend(C["side"], "#3a1c50", (my / ground) ** 1.8)
+            self.stars.append(self.create_oval(x - r, y - r, x + r, y + r, fill=self.cfg["star"], outline=""))
+        cf = self.cfg
+        mx, my, mr = w * 0.7, min(ground * 0.36, 80 * k), cf.get("moon_r", 17) * k
+        sky = _blend(C["side"], cf["haze"], (my / ground) ** 1.8)
         for i in range(12, 0, -1):                   # soft moon glow
             rr = mr + i * 1.7 * k
             self.create_oval(mx - rr, my - rr, mx + rr, my + rr, outline="",
-                             fill=_blend(sky, "#c9b27a", ((13 - i) / 13) ** 2.2 * 0.45))
-        self.create_oval(mx - mr, my - mr, mx + mr, my + mr, fill="#f4e6b4", outline="")
+                             fill=_blend(sky, cf["glow"], ((13 - i) / 13) ** 2.2 * 0.45))
+        self.create_oval(mx - mr, my - mr, mx + mr, my + mr, fill=cf["moon"], outline="")
         for cx, cy, cr in ((-6, -5, 4), (5, 3, 5), (-3, 8, 2.5), (8, -8, 2)):
             self.create_oval(mx + (cx - cr) * k, my + (cy - cr) * k, mx + (cx + cr) * k, my + (cy + cr) * k,
-                             fill="#e3d29a", outline="")
+                             fill=cf["crater"], outline="")
         # bare tree
         tx = w * 0.16
-        self.create_line(tx, ground + 4 * k, tx + 2 * k, ground - 58 * k, fill="#07040b", width=5 * k)
+        self.create_line(tx, ground + 4 * k, tx + 2 * k, ground - 58 * k, fill=cf["ground"], width=5 * k)
         for (x0, y0, x1, y1, wd) in ((2, -40, -18, -62, 3), (2, -48, 22, -70, 3), (-10, -53, -20, -60, 2),
                                      (14, -61, 26, -64, 2), (2, -30, 18, -42, 2.5), (2, -58, 6, -76, 2)):
             self.create_line(tx + x0 * k, ground + y0 * k, tx + x1 * k, ground + y1 * k,
-                             fill="#07040b", width=wd * k, capstyle="round")
+                             fill=cf["ground"], width=wd * k, capstyle="round")
         # hill + tombstones + pumpkin
         pts = []
         for i in range(25):
             x = w * i / 24
             pts += [x, ground - (6 + 5 * __import__("math").sin(i / 3.2)) * k]
-        self.create_polygon(0, h, *pts, w, h, fill="#07040b", outline="")
+        self.create_polygon(0, h, *pts, w, h, fill=cf["ground"], outline="")
         for gx, gh in ((0.42, 22), (0.6, 17), (0.84, 24)):
             x = w * gx
             top = ground - gh * k
-            self.create_rectangle(x - 8 * k, top + 6 * k, x + 8 * k, ground + 4 * k, fill="#2a2036", outline="")
-            self.create_oval(x - 8 * k, top, x + 8 * k, top + 13 * k, fill="#2a2036", outline="")
-            self.create_line(x, top + 5 * k, x, top + 15 * k, fill="#3d3150", width=2 * k)
-            self.create_line(x - 4 * k, top + 8 * k, x + 4 * k, top + 8 * k, fill="#3d3150", width=2 * k)
-        px, py = w * 0.72, ground + 6 * k
-        self.glow = self.create_oval(px - 16 * k, py - 10 * k, px + 16 * k, py + 12 * k,
-                                     fill=_blend("#07040b", "#ff7a1a", 0.18), outline="")
+            self.create_rectangle(x - 8 * k, top + 6 * k, x + 8 * k, ground + 4 * k, fill=cf["stone"], outline="")
+            self.create_oval(x - 8 * k, top, x + 8 * k, top + 13 * k, fill=cf["stone"], outline="")
+            self.create_line(x, top + 5 * k, x, top + 15 * k, fill=cf["mark"], width=2 * k)
+            self.create_line(x - 4 * k, top + 8 * k, x + 4 * k, top + 8 * k, fill=cf["mark"], width=2 * k)
+        self.ground = ground
+        if cf["item"] == "pumpkin":
+            self._draw_pumpkin(w * 0.72, ground + 6 * k)
+        elif cf["item"] == "cauldron":
+            self._draw_cauldron(w * 0.7, ground + 2 * k)
+        elif cf["item"] == "fog":
+            self.fog = []
+            for i in range(7):
+                fw = self.rnd.uniform(30, 55) * k
+                fx, fy = self.rnd.uniform(-20 * k, w), ground + self.rnd.uniform(-22, -4) * k
+                self.fog.append({"x": fx, "y": fy, "w": fw, "v": self.rnd.uniform(0.15, 0.4) * k,
+                                 "id": self.create_oval(0, 0, 0, 0, outline="",
+                                                        fill=_blend(_blend(C["side"], cf["haze"], 0.9), "#9fd8c8",
+                                                                    self.rnd.uniform(0.10, 0.18)))})
+        n = 9 if cf["creature"] == "candy" else 4
+        self.bats = [self._new_bat(x=self.rnd.uniform(0, w)) for _ in range(n)]
+        self.spider = []
+        if cf.get("spider"):
+            self.spider_y = 8 * k
+            self.thread = self.create_line(w * 0.32, 0, w * 0.32, self.spider_y, fill="#5a4b6b", width=1)
+
+    def _draw_pumpkin(self, px, py):
+        k = self.k
+        self.create_oval(px - 16 * k, py - 10 * k, px + 16 * k, py + 12 * k,
+                         fill=_blend(self.cfg["ground"], "#ff7a1a", 0.18), outline="")
         self.create_oval(px - 8 * k, py - 6 * k, px + 8 * k, py + 6 * k, fill="#ff7a1a", outline="")
         self.create_line(px, py - 6 * k, px + 1 * k, py - 9 * k, fill="#5d8a2e", width=2 * k)
         self.p_face = self.create_polygon(px - 4 * k, py - 1 * k, px - 1 * k, py - 1 * k, px - 2.5 * k, py - 3.5 * k,
                                           fill="#ffd23f", outline="")
         self.p_face2 = self.create_polygon(px + 1 * k, py - 1 * k, px + 4 * k, py - 1 * k, px + 2.5 * k, py - 3.5 * k,
                                            fill="#ffd23f", outline="")
-        self.ground = ground
-        self.bats = [self._new_bat(x=self.rnd.uniform(0, w)) for _ in range(4)]
-        self.spider_y = 8 * k
-        self.thread = self.create_line(w * 0.32, 0, w * 0.32, self.spider_y, fill="#5a4b6b", width=1)
-        self.spider = []
+
+    def _draw_cauldron(self, cx, cy):
+        k = self.k
+        self.cauldron = (cx, cy - 13 * k)
+        self.create_oval(cx - 26 * k, cy - 26 * k, cx + 26 * k, cy + 6 * k,
+                         fill=_blend(self.cfg["ground"], "#8be36b", 0.16), outline="")      # green glow
+        self.create_line(cx - 12 * k, cy + 4 * k, cx - 15 * k, cy + 9 * k, fill="#1a1222", width=3 * k)
+        self.create_line(cx + 12 * k, cy + 4 * k, cx + 15 * k, cy + 9 * k, fill="#1a1222", width=3 * k)
+        self.create_oval(cx - 17 * k, cy - 18 * k, cx + 17 * k, cy + 8 * k, fill="#1a1222", outline="")
+        self.create_oval(cx - 18 * k, cy - 18 * k, cx + 18 * k, cy - 10 * k, fill="#2a2036", outline="")
+        self.brew = self.create_oval(cx - 15 * k, cy - 17 * k, cx + 15 * k, cy - 11 * k, fill="#8be36b", outline="")
 
     # ---------------------------------------------------------------- bats
     def _new_bat(self, x=None):
         k = self.k
+        if self.cfg["creature"] == "candy":
+            return {"x": self.rnd.uniform(6 * k, self.w - 6 * k) if self.w else 0,
+                    "y": self.rnd.uniform(-self.ground * 0.8, 0) if x is not None else -14 * k,
+                    "vx": 0.0, "vy": self.rnd.uniform(0.5, 1.1) * k, "ph": self.rnd.uniform(0, 6.28),
+                    "s": self.rnd.uniform(0.8, 1.15) * k, "id": None}
         return {"x": -20 * k if x is None else x, "y": self.rnd.uniform(14 * k, self.ground * 0.62),
-                "vx": self.rnd.uniform(0.5, 1.3) * k, "vy": 0.0, "ph": self.rnd.uniform(0, 6.28),
+                "vx": self.rnd.uniform(0.5, 1.3) * k * (0.6 if self.cfg["creature"] == "ghost" else 1),
+                "vy": 0.0, "ph": self.rnd.uniform(0, 6.28),
                 "s": self.rnd.uniform(0.8, 1.15) * k, "id": None}
+
+    GHOST = (-7, 7, -8, 0, -7, -6, -4, -9, 0, -10, 4, -9, 7, -6, 8, 0, 7, 7, 4, 5, 2, 8, -1, 5, -4, 8)
+
+    def _draw_creature(self, b):
+        """Create or move one flying thing (bat, ghost or candy corn)."""
+        kind, s, x, y = self.cfg["creature"], b["s"], b["x"], b["y"]
+        if kind == "bat":
+            pts = self._bat_points(b)
+            if b["id"] is None:
+                b["id"] = self.create_polygon(*pts, fill=self.cfg["fly"], outline="")
+            else:
+                self.coords(b["id"], *pts)
+            return
+        if kind == "ghost":
+            wob = __import__("math").sin(self.t / 3 + b["ph"]) * 1.2
+            shape = list(self.GHOST)
+            for i in range(19, len(shape), 2):          # wavy hem
+                shape[i] += wob if (i // 2) % 2 else -wob
+            pts = [x + v * s if i % 2 == 0 else y + v * s for i, v in enumerate(shape)]
+            fade = 0.55 + 0.45 * abs(__import__("math").sin(self.t / 25 + b["ph"]))
+            col = _blend(C["side"], self.cfg["fly"], fade)
+            if b["id"] is None:
+                b["id"] = self.create_polygon(*pts, fill=col, outline="", smooth=True)
+                b["eyes"] = [self.create_oval(0, 0, 0, 0, fill="#0a1312", outline="") for _ in range(2)]
+            else:
+                self.coords(b["id"], *pts)
+                self.itemconfigure(b["id"], fill=col)
+            for e, ex in zip(b["eyes"], (-3, 2)):
+                self.coords(e, x + ex * s, y - 5 * s, x + (ex + 1.6) * s, y - 2.6 * s)
+            return
+        # candy corn: three coloured bands, gently spinning
+        import math
+        a = math.sin(self.t / 9 + b["ph"]) * 0.5
+        def pt(px, py):
+            return (x + (px * math.cos(a) - py * math.sin(a)) * s, y + (px * math.sin(a) + py * math.cos(a)) * s)
+        bands = (("#fff7e0", (0, -7), (-1.6, -3.5), (1.6, -3.5)),
+                 ("#ff8a1f", (-1.6, -3.5), (-3.4, 1), (3.4, 1), (1.6, -3.5)),
+                 ("#ffd23f", (-3.4, 1), (-4.6, 5), (4.6, 5), (3.4, 1)))
+        if b["id"] is None:
+            b["id"] = [self.create_polygon(0, 0, 0, 0, 0, 0, fill=c, outline="") for c, *_ in bands]
+        for item, (_, *corners) in zip(b["id"], bands):
+            self.coords(item, *[v for c in corners for v in pt(*c)])
+
+    def _delete_creature(self, b):
+        ids = b["id"] if isinstance(b["id"], list) else [b["id"]]
+        for i in ids + b.get("eyes", []):
+            if i:
+                self.delete(i)
+        b["id"] = None
+        b.pop("eyes", None)
+
 
     UP = (-10, -4, -6, -1, -3, -3, 0, 0, 3, -3, 6, -1, 10, -4, 7, 2, 3, 1, 0, 3, -3, 1, -7, 2)
     DOWN = (-10, 5, -6, 3, -3, 1, 0, 0, 3, 1, 6, 3, 10, 5, 6, 5, 3, 3, 0, 3, -3, 3, -6, 5)
@@ -464,8 +609,8 @@ class NightScene(tk.Canvas):
 
     def _click(self, e):
         for b in self.bats:
-            if b["id"] and abs(b["x"] - e.x) < 16 * self.k and abs(b["y"] - e.y) < 12 * self.k:
-                self.delete(b["id"])
+            if b["id"] and abs(b["x"] - e.x) < 16 * self.k and abs(b["y"] - e.y) < 14 * self.k:
+                self._delete_creature(b)
                 for i in range(7):
                     ang = i * 6.283 / 7
                     self.poofs.append({"x": b["x"], "y": b["y"], "dx": __import__("math").cos(ang) * 2 * self.k,
@@ -482,13 +627,28 @@ class NightScene(tk.Canvas):
         self.t += 1
         k = self.k
         if self.stars and self.t % 4 == 0:
-            self.itemconfigure(self.rnd.choice(self.stars), fill=self.rnd.choice(("#8f80a8", "#c9bde0", "#5e5174", "#f4ebdd")))
+            self.itemconfigure(self.rnd.choice(self.stars), fill=self.rnd.choice(
+                (self.cfg["star"], _blend(self.cfg["star"], "#ffffff", 0.5), _blend(self.cfg["star"], C["side"], 0.5), "#f4ebdd")))
         if self.t % 5 == 0 and hasattr(self, "p_face"):
             col = self.rnd.choice(PumpkinLogo.GLOW)
             self.itemconfigure(self.p_face, fill=col)
             self.itemconfigure(self.p_face2, fill=col)
+        candy = self.cfg["creature"] == "candy"
         for b in self.bats:
             if b.get("respawn", 0) > self.t:
+                continue
+            if candy:                                   # candy corn just drifts down and sways
+                b["y"] += b["vy"]
+                b["x"] += math.sin(self.t / 14 + b["ph"]) * 0.5 * k
+                if self.mouse:
+                    dx, dy = b["x"] - self.mouse[0], b["y"] - self.mouse[1]
+                    d = math.hypot(dx, dy)
+                    if d < 30 * k:
+                        b["x"] += dx / (d + 1) * 2 * k
+                if b["y"] > self.ground + 4 * k:
+                    self._delete_creature(b)
+                    b.update(self._new_bat())
+                self._draw_creature(b)
                 continue
             if self.mouse:
                 dx, dy = b["x"] - self.mouse[0], b["y"] - self.mouse[1]
@@ -503,21 +663,15 @@ class NightScene(tk.Canvas):
             b["y"] += b["vy"] + math.sin(self.t / 6 + b["ph"]) * 0.6 * k
             b["y"] = max(8 * k, min(self.ground - 26 * k, b["y"]))
             if b["x"] > self.w + 24 * k or b["x"] < -40 * k:
+                self._delete_creature(b)
                 b.update(self._new_bat())
-                if b["id"]:
-                    self.delete(b["id"])
-                    b["id"] = None
-            pts = self._bat_points(b)
-            if b["id"] is None:
-                b["id"] = self.create_polygon(*pts, fill="#050308", outline="")
-            else:
-                self.coords(b["id"], *pts)
+            self._draw_creature(b)
         for p in list(self.poofs):
             p["life"] -= 1
             p["x"] += p["dx"]
             p["y"] += p["dy"]
             r = (3 - p["life"] / 6) * k
-            col = _blend("#c9bde0", C["side"], 1 - p["life"] / 12)
+            col = _blend(self.cfg["poof"], C["side"], 1 - p["life"] / 12)
             if p["id"] is None:
                 p["id"] = self.create_oval(0, 0, 0, 0, fill=col, outline="")
             self.coords(p["id"], p["x"] - r, p["y"] - r, p["x"] + r, p["y"] + r)
@@ -525,6 +679,33 @@ class NightScene(tk.Canvas):
             if p["life"] <= 0:
                 self.delete(p["id"])
                 self.poofs.remove(p)
+        # witch's cauldron bubbles
+        if self.cfg["item"] == "cauldron" and hasattr(self, "cauldron"):
+            if self.t % 6 == 0:
+                cx, cy = self.cauldron
+                r = self.rnd.uniform(1.5, 3.2) * k
+                self.bubbles.append({"x": cx + self.rnd.uniform(-10, 10) * k, "y": cy - 2 * k, "r": r, "life": 34,
+                                     "id": self.create_oval(0, 0, 0, 0, outline="", fill="#8be36b")})
+            for bub in list(self.bubbles):
+                bub["life"] -= 1
+                bub["y"] -= 0.9 * k
+                bub["x"] += math.sin(self.t / 4 + bub["r"]) * 0.3 * k
+                r = bub["r"] * (1 + (34 - bub["life"]) / 60)
+                self.coords(bub["id"], bub["x"] - r, bub["y"] - r, bub["x"] + r, bub["y"] + r)
+                self.itemconfigure(bub["id"], fill=_blend(C["side"], "#8be36b", bub["life"] / 34))
+                if bub["life"] <= 0:
+                    self.delete(bub["id"])
+                    self.bubbles.remove(bub)
+            if self.t % 7 == 0:
+                self.itemconfigure(self.brew, fill=self.rnd.choice(("#8be36b", "#a5f07f", "#72cc52")))
+        # rolling fog
+        for f in self.fog:
+            f["x"] += f["v"]
+            if f["x"] - f["w"] > self.w:
+                f["x"] = -f["w"]
+            self.coords(f["id"], f["x"] - f["w"], f["y"] - 3.5 * k, f["x"] + f["w"], f["y"] + 3.5 * k)
+        if not self.cfg.get("spider"):
+            return
         # spider follows your cursor down its thread
         target = min(self.mouse[1], self.ground * 0.55) if self.mouse else 8 * k
         self.spider_y += (target - self.spider_y) * 0.08
@@ -640,7 +821,7 @@ class App:
         global TITLE_FAMILY
         try:
             import tkinter.font as tkfont
-            if THEME == "halloween" and "Chiller" in tkfont.families(root):
+            if THEME in SCENES and "Chiller" in tkfont.families(root):
                 TITLE_FAMILY = "Chiller"
         except Exception:
             pass
@@ -761,7 +942,7 @@ class App:
         h.grid(row=0, column=0, sticky="ew", pady=(0, 16))
         h.grid_columnconfigure(0, weight=1)
         tf = ctk.CTkFont(family=TITLE_FAMILY, size=34) if TITLE_FAMILY != FAMILY else F(24, "bold")
-        ctk.CTkLabel(h, text=title, font=tf, text_color=C["accent"] if THEME == "halloween" else C["text"]).grid(
+        ctk.CTkLabel(h, text=title, font=tf, text_color=C["accent"] if THEME in SCENES else C["text"]).grid(
             row=0, column=0, sticky="w")
         var = tk.StringVar(value=subtitle)
         ctk.CTkLabel(h, textvariable=var, font=F(12), text_color=C["muted"]).grid(
@@ -799,7 +980,7 @@ class App:
         brand = ctk.CTkFrame(sb, fg_color="transparent")
         brand.grid(row=0, column=0, sticky="ew", padx=(18, 8), pady=(22, 26))
         brand.grid_columnconfigure(1, weight=1)
-        if THEME == "halloween":
+        if THEME in SCENES:
             PumpkinLogo(brand).grid(row=0, column=0, rowspan=2)
         else:
             self._brand_img = logo_image(brand, 40)
@@ -835,7 +1016,7 @@ class App:
         n.grid(row=7, column=0, sticky="ew", padx=12, pady=2)
         self.nav["updates"] = n
 
-        if THEME == "halloween":
+        if THEME in SCENES:
             NightScene(sb).grid(row=8, column=0, sticky="nsew", pady=(14, 0))
         acct.grid(row=9, column=0, sticky="ew", padx=12, pady=14)
         acct.grid_columnconfigure(1, weight=1)
@@ -1204,7 +1385,7 @@ class App:
         card.place(relx=0.5, rely=0.5, anchor="center")
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(padx=36, pady=32)
-        if THEME == "halloween":
+        if THEME in SCENES:
             PumpkinLogo(inner, size=56, bg=C["card"]).pack()
         else:
             self._login_img = logo_image(inner, 64)
@@ -2056,7 +2237,7 @@ class App:
             R(5, 24 + i * 9, 29, 30 + i * 9, t["card2"] if i == 0 else t["side"])
             R(9, 26 + i * 9, 22, 28 + i * 9, t["text"] if i == 0 else t["muted"])
         R(5, 24, 6.5, 30, t["accent"])
-        R(42, 8, 72, 13, t["accent"] if key == "halloween" else t["text"])
+        R(42, 8, 72, 13, t["accent"] if key in SCENES else t["text"])
         R(42, 16, 64, 18, t["muted"])
         R(42, 24, w - 8, 44, t["card"])
         R(46, 30, 60, 38, t["accent"])
@@ -2065,11 +2246,15 @@ class App:
         R(42, 50, w - 8, h - 8, t["card"])
         for i in range(2):
             R(46, 55 + i * 7, 80, 58 + i * 7, t["text"])
-            R(98, 55 + i * 7, 114, 58 + i * 7, t["muted"])
+            R(w - 28, 55 + i * 7, w - 14, 58 + i * 7, t["muted"])
         R(46, 55, 74, 59, t["text"])
-        if key == "halloween":
-            cv.create_oval(22 * k, 58 * k, 30 * k, 66 * k, fill="#f4e6b4", outline="")
-            cv.create_oval(9 * k, 66 * k, 15 * k, 72 * k, fill="#ff7a1a", outline="")
+        if key in SCENES:
+            sc = SCENES[key]
+            R(0, 52, 34, h, _blend(t["side"], sc["haze"], 0.7))
+            cv.create_oval(21 * k, 56 * k, 30 * k, 65 * k, fill=sc["moon"], outline="")
+            R(0, h - 6, 34, h, sc["ground"])
+            dot = {"pumpkin": "#ff7a1a", "cauldron": "#8be36b", "fog": "#9fd8c8"}[sc["item"]]
+            cv.create_oval(8 * k, (h - 10) * k, 14 * k, (h - 4) * k, fill=dot, outline="")
         return cv
 
     def _open_settings(self):
@@ -2111,8 +2296,8 @@ class App:
         for i, key in enumerate(THEME_LABELS):
             card = ctk.CTkFrame(grid, fg_color=C["card2"], corner_radius=12, border_width=2,
                                 border_color=C["border"], cursor="hand2")
-            card.grid(row=i // 4, column=i % 4, padx=(0 if i % 4 == 0 else 10, 0), pady=(0, 10))
-            pv = self._theme_preview(card, key)
+            card.grid(row=i // 6, column=i % 6, padx=(0 if i % 6 == 0 else 8, 0), pady=(0, 8))
+            pv = self._theme_preview(card, key, w=116, h=70)
             pv.pack(padx=8, pady=(8, 4))
             name = ctk.CTkLabel(card, text=THEME_LABELS[key], font=F(12, "bold"), text_color=C["text"], height=20)
             name.pack(pady=(0, 8))
@@ -2120,7 +2305,8 @@ class App:
                 w.bind("<Button-1>", lambda e, kk=key: pick(kk))
                 w.bind("<Double-1>", lambda e, kk=key: (pick(kk), apply()))
             cards[key] = (card, name)
-        ctk.CTkLabel(f, text="Halloween adds a moving night scene with bats you can chase. Arctic is a light theme.",
+        ctk.CTkLabel(f, text="The spooky themes (Halloween, Blood Moon, Ghostly, Witch's Brew, Candy Corn) add a moving "
+                              "scene to the sidebar - click the bats, ghosts and candy. Arctic is a light theme.",
                      font=F(11), text_color=C["muted"]).pack(anchor="w")
 
         # ---- storage
