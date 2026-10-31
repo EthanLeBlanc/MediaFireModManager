@@ -3,6 +3,14 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.9.0
+- New PSD Builder page in the sidebar: turns a Substance Painter export into your Chain + Pendant PSD in Photoshop
+  - Finds the texture sets by itself, whatever Painter named them - you just pick which is Chain and which is Pendant
+  - Base group gets the art, two colour fills (Multiply) for your masks, and Shading: ao 70% Multiply, 2D 60% Soft Light, curv Overlay (20% chain, 39% pendant)
+  - Norm gets the normal plus "Inverted for Bikes" (green flipped); Spec and Rough get their maps
+  - Choose PSD only, or PSD + game .tga files (X.tga, X_n, X_s, X_r in a Game textures folder)
+  - "Export game .tga from a PSD" makes the game files from your finished PSD after you've done the masks and colours
+
 ## 2.8.0
 - Settings is now a page inside the app (sidebar > Settings, or the gear) instead of a pop-up window
 - Smaller theme tiles - click one to switch instantly
