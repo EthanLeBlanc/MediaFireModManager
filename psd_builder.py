@@ -5,13 +5,10 @@ Painter (with the "MXB" preset) exports, per texture set X:
     <mesh>_X.1001.psd   one PSD holding layers  X, X_ao, X_2D, X_mask, X_curv
     X_n.tga  X_s.tga  X_r.tga
 
-The app writes this PSD itself (no Photoshop needed), top to bottom:
+The app writes one PSD per texture set itself (no Photoshop needed), named after the set (X.psd):
     Hide me                      (locked "thank you" overlay)
-    Pendant / Chain
-        rough  -> X_r
-        spec   -> X_s
-        Norm   -> Bikes (green flipped), X_n
-        Base   -> Shading (X_ao, X_2D, X_curv, X_mask - per the shading recipe), X
+    n s r    -> X_r, X_s, Bikes (green flipped), X_n
+    Base     -> Shading (X_ao, X_2D, X_curv, X_mask - per the shading preset), X
 Colour fills are left for you to add.
 
 Exporting game textures from a finished PSD (after your masks and colours) still uses Photoshop,
@@ -128,17 +125,6 @@ def find_sets(folder):
         out.append(item)
     out.sort(key=lambda s: s["name"].lower())
     return out
-
-
-def guess_slots(sets):
-    """Best guess for which set is the Chain and which is the Pendant."""
-    names = [s["name"] for s in sets if s["psd"]]
-    pend_words = ("pendant", "plate", "pend", "piece", "medal", "charm")
-    pendant = next((n for n in names if any(w in n.lower() for w in pend_words)), None)
-    chain = next((n for n in names if n != pendant), None)
-    if pendant is None and len(names) > 1:
-        pendant = next((n for n in names if n != chain), None)
-    return {"Chain": chain or NONE, "Pendant": pendant or NONE}
 
 
 # --------------------------------------------------------- Photoshop
@@ -415,100 +401,113 @@ def _blend(base, top, mode, opacity):
     return Image.blend(base, mixed, max(0, min(100, opacity)) / 100.0)
 
 
-def build_psd(folder, chain_set, pendant_set, out_psd, shading=None, export_dir=None,
-              hide_me=None, progress=lambda t: None):
-    """Write the PSD. Returns {"ok", "message", "warnings", "exported"}."""
+NSR_GROUP = "n s r"
+
+
+def guess_preset(name):
+    """Which shading preset a texture set probably wants, from its name."""
+    words = ("pendant", "plate", "pend", "piece", "medal", "charm")
+    return "Pendant" if any(w in name.lower() for w in words) else "Chain"
+
+
+def build_set_psd(s, out_psd, preset="Chain", shading=None, export_dir=None, hide_me=None,
+                  progress=lambda t: None):
+    """Make one PSD for one Painter texture set. Layout, top to bottom:
+        Hide me (locked)
+        n s r      -> X_r, X_s, Bikes (green flipped), X_n
+        Base       -> Shading (X_ao, X_2D, X_curv, X_mask - per the preset), X
+    Returns (warnings, exported files)."""
     warnings, exported = [], []
-    recipe = shading_recipe(shading)
-    parts = [(slot, s) for slot, s in (("Pendant", pendant_set), ("Chain", chain_set)) if s]  # top first
-    if not parts:
-        raise ValueError("Pick a texture set for the Chain or the Pendant")
-    for slot, s in parts:
-        if not s.get("psd"):
-            raise ValueError(f"No Painter PSD found for '{s['name']}'")
+    X = s["name"]
+    if not s.get("psd"):
+        raise ValueError(f"No Painter PSD found for '{X}'")
+    recipe = shading_recipe(shading).get(preset) or shading_recipe(None)["Chain"]
 
-    doc = None
-    game = {}
-    for slot, s in parts:
-        X = s["name"]
-        progress(f"Reading {X} ({slot})…")
-        layers, size = _painter_layers(s["psd"])
-        if doc is None:
-            doc = psd_writer.Doc(*size)
-            if hide_me and os.path.isfile(hide_me):
-                img = Image.open(hide_me).convert("RGBA")
-                if img.size != size:
-                    img = img.resize(size)
-                doc.layer(HIDE_ME_NAME, img, locked=True)
-        elif size != (doc.width, doc.height):
-            warnings.append(f"{X} is {size[0]}x{size[1]}, not {doc.width}x{doc.height}")
+    progress(f"Reading {X}…")
+    layers, size = _painter_layers(s["psd"])
+    doc = psd_writer.Doc(*size)
+    if hide_me and os.path.isfile(hide_me):
+        img = Image.open(hide_me).convert("RGBA")
+        doc.layer(HIDE_ME_NAME, img if img.size == size else img.resize(size), locked=True)
 
-        g = doc.group(slot)
-        rough, spec, norm, base = g.group("rough"), g.group("spec"), g.group("Norm"), g.group("Base")
+    maps = doc.group(NSR_GROUP)
+    base = doc.group("Base")
 
-        def tga(key, label):
-            p = s.get(key)
-            if not p:
-                warnings.append(f"{X}_{key}.tga not found - {label} group is empty")
-                return None
-            return Image.open(p)
+    def tga(key):
+        p = s.get(key)
+        if not p:
+            warnings.append(f"{X}_{key}.tga not found")
+            return None
+        img = Image.open(p)
+        if img.size != size:
+            warnings.append(f"{X}_{key}.tga is {img.size[0]}x{img.size[1]}, the PSD is {size[0]}x{size[1]}")
+        return img
 
-        img = tga("r", "rough")
-        if img:
-            rough.layer(f"{X}_r", img.convert("RGB"))
-        img = tga("s", "spec")
-        if img:
-            spec.layer(f"{X}_s", img.convert("RGB"))
-        img = tga("n", "Norm")
-        flipped = None
-        if img:
-            flipped = _flip_green(img)
-            norm.layer(FLIPPED_NORMAL_NAME, flipped)
-            norm.layer(f"{X}_n", img.convert("RGB"))
+    r_img, s_img, n_img = tga("r"), tga("s"), tga("n")
+    flipped = _flip_green(n_img) if n_img else None
+    if r_img:
+        maps.layer(f"{X}_r", r_img.convert("RGB"))
+    if s_img:
+        maps.layer(f"{X}_s", s_img.convert("RGB"))
+    if n_img:
+        maps.layer(FLIPPED_NORMAL_NAME, flipped)
+        maps.layer(f"{X}_n", n_img.convert("RGB"))
 
-        shade = base.group("Shading")
-        stack = []
-        for row in recipe[slot]:
-            if not row["on"]:
-                continue
-            L = _find(layers, f"{X}_{row['map']}", "_" + row["map"])
-            if L is None:
-                warnings.append(f"Layer {X}_{row['map']} not in {os.path.basename(s['psd'])}")
-                continue
-            shade.layer(f"{X}_{row['map']}", L, blend=row["blend"], opacity=row["opacity"])
-            stack.append((L, row))
-        art = _find(layers, X)
-        if art is None:     # fall back to the bottom layer of the Painter PSD
-            art = list(layers.values())[-1] if layers else None
-            if art is not None:
-                warnings.append(f"No layer called '{X}' - used the bottom layer as the art")
-        if art is not None:
-            base.layer(X, art)
-        game[X] = (art, stack, flipped, s)
+    shade = base.group("Shading")
+    stack = []
+    for row in recipe:
+        if not row["on"]:
+            continue
+        L = _find(layers, f"{X}_{row['map']}", "_" + row["map"])
+        if L is None:
+            warnings.append(f"Layer {X}_{row['map']} not in {os.path.basename(s['psd'])}")
+            continue
+        shade.layer(f"{X}_{row['map']}", L, blend=row["blend"], opacity=row["opacity"])
+        stack.append((L, row))
+    art = _find(layers, X)
+    if art is None and layers:
+        art = list(layers.values())[-1]
+        warnings.append(f"No layer called '{X}' - used the bottom layer as the art")
+    if art is not None:
+        base.layer(X, art)
 
-    progress("Saving " + os.path.basename(out_psd) + "…")
+    progress(f"Saving {os.path.basename(out_psd)}…")
     tmp = out_psd + ".part"
     doc.save(tmp)
     os.replace(tmp, out_psd)
 
     if export_dir:
         os.makedirs(export_dir, exist_ok=True)
-        for X, (art, stack, flipped, s) in game.items():
-            progress(f"Writing game textures for {X}…")
-            if art is not None:
-                out = art.convert("RGB")
-                for L, row in reversed(stack):        # bottom layer first
-                    out = _blend(out, L.convert("RGB"), row["blend"], row["opacity"])
-                out.save(os.path.join(export_dir, X + ".tga"))
-                exported.append(X + ".tga")
-            if flipped is not None:
-                flipped.save(os.path.join(export_dir, X + "_n.tga"))
-                exported.append(X + "_n.tga")
-            for key in ("s", "r"):
-                if s.get(key):
-                    shutil.copy2(s[key], os.path.join(export_dir, f"{X}_{key}.tga"))
-                    exported.append(f"{X}_{key}.tga")
-    return {"ok": True, "message": "Built " + out_psd, "warnings": warnings, "exported": exported}
+        progress(f"Writing game textures for {X}…")
+        if art is not None:
+            out = art.convert("RGB")
+            for L, row in reversed(stack):            # bottom layer first
+                out = _blend(out, L.convert("RGB"), row["blend"], row["opacity"])
+            out.save(os.path.join(export_dir, X + ".tga"))
+            exported.append(X + ".tga")
+        if flipped is not None:
+            flipped.save(os.path.join(export_dir, X + "_n.tga"))
+            exported.append(X + "_n.tga")
+        for key in ("s", "r"):
+            if s.get(key):
+                shutil.copy2(s[key], os.path.join(export_dir, f"{X}_{key}.tga"))
+                exported.append(f"{X}_{key}.tga")
+    return warnings, exported
+
+
+def build_all(jobs, shading=None, export_dir=None, hide_me=None, progress=lambda t: None):
+    """jobs: [{"set": set dict, "out_psd": path, "preset": "Chain"|"Pendant"}]."""
+    if not jobs:
+        raise ValueError("Tick at least one texture set to build")
+    made, warnings, exported = [], [], []
+    for j in jobs:
+        w, e = build_set_psd(j["set"], j["out_psd"], j.get("preset", "Chain"), shading, export_dir,
+                             hide_me, progress)
+        made.append(os.path.basename(j["out_psd"]))
+        warnings += w
+        exported += e
+    return {"ok": True, "message": "Built " + ", ".join(made), "made": made, "warnings": warnings,
+            "exported": exported}
 
 
 class BuildJob:
@@ -523,7 +522,7 @@ class BuildJob:
 
     def _run(self):
         try:
-            res = build_psd(progress=self.on_progress, **self.kw)
+            res = build_all(progress=self.on_progress, **self.kw)
         except Exception as e:
             msg = str(e)
             if isinstance(e, PermissionError):

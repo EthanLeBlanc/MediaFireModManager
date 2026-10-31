@@ -857,8 +857,9 @@ class App:
         self.job_last = {}          # job id -> last status/progress shown
         self.storage = None
         self.update_info = None
-        self.psd = {"folder": self.cfg.get("psd_folder", ""), "sets": [], "chain": None, "pendant": None,
-                    "running": False, "status": "", "status_kind": "muted", "last_out": None}
+        self.psd = {"folder": self.cfg.get("psd_folder", ""), "sets": [],
+                    "running": False, "status": "", "status_kind": "muted", "last_out": None,
+                    "rows": {}}
         if self.psd["folder"]:
             self._psd_scan(self.psd["folder"], quiet=True)
         root.report_callback_exception = self._report_exc
@@ -2890,7 +2891,7 @@ class App:
         pg = self._new_page("psd")
         pg.grid_rowconfigure(1, weight=1)
         self.psd_sub, act = self._header(pg, "PSD Builder",
-                                         "Painter export  →  Chain + Pendant PSD, laid out like your Base.psd")
+                                         "Painter export  →  one PSD per texture set, with Base and n s r folders")
         Btn(act, "Export game .tga from a PSD…", self._psd_pick_export, "secondary").pack(side="left")
 
         body = ctk.CTkScrollableFrame(pg, fg_color="transparent", corner_radius=0,
@@ -2904,8 +2905,9 @@ class App:
                                                                           padx=(20, 12), pady=(16, 0), sticky="n")
             ctk.CTkLabel(card, text=text, font=F(14, "bold"), text_color=C["text"], anchor="w").grid(
                 row=0, column=1, columnspan=3, sticky="w", pady=(16, 0))
-            ctk.CTkLabel(card, text=sub, font=F(12), text_color=C["muted"], anchor="w", justify="left").grid(
-                row=1, column=1, columnspan=3, sticky="w")
+            lb = ctk.CTkLabel(card, text=sub, font=F(12), text_color=C["muted"], anchor="w", justify="left")
+            lb.grid(row=1, column=1, columnspan=3, sticky="w")
+            return lb
 
         ent = dict(height=36, corner_radius=9, fg_color=C["bg"], border_color=C["border"], font=F(12))
 
@@ -2914,64 +2916,44 @@ class App:
         title(c1, "1", "Painter export folder",
               "The folder you exported to with the MXB preset  ·  you can also drop the folder on this page")
         self.psd_folder_entry = ctk.CTkEntry(c1, placeholder_text="Pick the folder Painter exported to", **ent)
-        self.psd_folder_entry.grid(row=2, column=1, sticky="ew", pady=(12, 0))
+        self.psd_folder_entry.grid(row=2, column=1, sticky="ew", pady=(12, 16))
         if self.psd["folder"]:
             self.psd_folder_entry.insert(0, self.psd["folder"])
         self.psd_folder_entry.bind("<Return>", lambda e: self._psd_set_folder(self.psd_folder_entry.get()))
-        Btn(c1, "Browse…", self._psd_browse, "secondary", width=90).grid(row=2, column=2, padx=(8, 4), pady=(12, 0))
+        Btn(c1, "Browse…", self._psd_browse, "secondary", width=90).grid(row=2, column=2, padx=(8, 4), pady=(12, 16))
         Btn(c1, "⟳", lambda: self._psd_set_folder(self.psd_folder_entry.get()), "secondary", width=36).grid(
-            row=2, column=3, padx=(0, 20), pady=(12, 0))
-        self.psd_sets_frame = ctk.CTkFrame(c1, fg_color="transparent")
-        self.psd_sets_frame.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(10, 16), padx=(0, 20))
+            row=2, column=3, padx=(0, 20), pady=(12, 16))
 
-        # 2 - set it up
+        # 2 - texture sets
         c2 = self._card(body, 1)
-        title(c2, "2", "Set it up", "")
-        self.psd_out_hint = c2.grid_slaves(row=1, column=1)[0]
-        mid = ctk.CTkFrame(c2, fg_color="transparent")
-        mid.grid(row=2, column=1, columnspan=3, sticky="ew", pady=(12, 16), padx=(0, 20))
-        om = dict(width=230, height=34, corner_radius=9, fg_color=C["card2"], button_color=C["card2"],
-                  button_hover_color=C["hover"], dropdown_fg_color=C["card"], dropdown_hover_color=C["hover"],
-                  text_color=C["text"], dropdown_text_color=C["text"], font=F(12), dropdown_font=F(12),
-                  dynamic_resizing=False)
-        self.psd_menus = {}
-        for i, slot in enumerate(psd_builder.SLOTS):
-            ctk.CTkLabel(mid, text=slot, font=F(12, "bold"), text_color=C["text"], width=70, anchor="w").grid(
-                row=i, column=0, sticky="w", pady=3)
-            m = ctk.CTkOptionMenu(mid, values=[psd_builder.NONE], command=lambda v, s=slot: self._psd_pick(s, v),
-                                  **om)
-            m.grid(row=i, column=1, sticky="w", pady=3)
-            self.psd_menus[slot] = m
-        ctk.CTkFrame(mid, width=1, height=8, fg_color=C["border"]).grid(row=0, column=2, rowspan=3, sticky="ns", padx=22)
-        ctk.CTkLabel(mid, text="PSD name", font=F(12, "bold"), text_color=C["text"], anchor="w").grid(
-            row=0, column=3, sticky="w", pady=3)
-        self.psd_name = ctk.CTkEntry(mid, width=170, **ent)
-        self.psd_name.grid(row=0, column=4, columnspan=2, sticky="w", padx=(10, 0), pady=3)
-        self.psd_name.insert(0, self.cfg.get("psd_name", "Base"))
-        self.psd_name.bind("<KeyRelease>", lambda e: self._psd_refresh_hint())
-        ctk.CTkLabel(mid, text="Make", font=F(12, "bold"), text_color=C["text"], anchor="w").grid(
-            row=1, column=3, sticky="w", pady=3)
-        self.psd_mode_btns = {}
-        for j, (key, text) in enumerate((("psd", "PSD only"), ("both", "PSD + game .tga"))):
-            b = Btn(mid, text, lambda k=key: self._psd_set_mode(k), "secondary", width=120 if j else 90)
-            b.grid(row=1, column=4 + j, sticky="w", padx=(10 if not j else 6, 0), pady=3)
-            self.psd_mode_btns[key] = b
-        self.psd_keep = tk.BooleanVar(value=self.cfg.get("psd_keep_open", True))
-        ctk.CTkSwitch(mid, text="Open it in Photoshop when it's done", variable=self.psd_keep,
-                      onvalue=True, offvalue=False, progress_color=C["accent"], button_color=C["knob"],
-                      fg_color=C["card2"], font=F(12), text_color=C["text"], command=self._psd_save_opts).grid(
-            row=2, column=3, columnspan=3, sticky="w", pady=(8, 0))
-        Btn(mid, "Shading settings…", self._psd_shading_dialog, "secondary", width=150).grid(
-            row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        title(c2, "2", "Texture sets", "One PSD per set, named after its .tga files  ·  check the names, "
+                                       "untick any you don't want")
+        self.psd_sets_frame = ctk.CTkFrame(c2, fg_color="transparent")
+        self.psd_sets_frame.grid(row=2, column=1, columnspan=3, sticky="ew", pady=(10, 16), padx=(0, 20))
 
         # 3 - build
-        c4 = self._card(body, 2)
-        title(c4, "3", "Build it", "")
-        self.psd_ps_lbl = c4.grid_slaves(row=1, column=1)[0]
-        brow = ctk.CTkFrame(c4, fg_color="transparent")
-        brow.grid(row=2, column=1, columnspan=3, sticky="ew", pady=(12, 0), padx=(0, 20))
+        c3 = self._card(body, 2)
+        self.psd_out_hint = title(c3, "3", "Build it", "")
+        orow = ctk.CTkFrame(c3, fg_color="transparent")
+        orow.grid(row=2, column=1, columnspan=3, sticky="ew", pady=(12, 0), padx=(0, 20))
+        ctk.CTkLabel(orow, text="Make", font=F(12, "bold"), text_color=C["text"]).pack(side="left", padx=(0, 10))
+        self.psd_mode_btns = {}
+        for key, text, w in (("psd", "PSD only", 90), ("both", "PSD + game .tga", 120)):
+            b = Btn(orow, text, lambda k=key: self._psd_set_mode(k), "secondary", width=w)
+            b.pack(side="left", padx=(0, 6))
+            self.psd_mode_btns[key] = b
+        Btn(orow, "Shading settings…", self._psd_shading_dialog, "secondary", width=140).pack(side="left",
+                                                                                              padx=(14, 0))
+        self.psd_keep = tk.BooleanVar(value=self.cfg.get("psd_keep_open", True))
+        ctk.CTkSwitch(orow, text="Open in Photoshop when done", variable=self.psd_keep,
+                      onvalue=True, offvalue=False, progress_color=C["accent"], button_color=C["knob"],
+                      fg_color=C["card2"], font=F(12), text_color=C["text"], command=self._psd_save_opts).pack(
+            side="left", padx=(16, 0))
+
+        brow = ctk.CTkFrame(c3, fg_color="transparent")
+        brow.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(14, 0), padx=(0, 20))
         brow.grid_columnconfigure(1, weight=1)
-        self.psd_build_btn = Btn(brow, "◧  Build PSD", self._psd_build, "primary", width=150, height=40,
+        self.psd_build_btn = Btn(brow, "◧  Build", self._psd_build, "primary", width=150, height=40,
                                  font=F(13, "bold"))
         self.psd_build_btn.grid(row=0, column=0, rowspan=2)
         self.psd_status = ctk.CTkLabel(brow, text="", font=F(12), text_color=C["muted"], anchor="w",
@@ -2985,12 +2967,13 @@ class App:
                                 "secondary", width=100)
         self.psd_open_btn.grid(row=0, column=2, rowspan=2, padx=(10, 0))
         self.psd_open_btn.grid_remove()
-        prow = ctk.CTkFrame(c4, fg_color="transparent")
-        prow.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(12, 16), padx=(0, 20))
+        prow = ctk.CTkFrame(c3, fg_color="transparent")
+        prow.grid(row=4, column=1, columnspan=3, sticky="ew", pady=(10, 14), padx=(0, 20))
         Btn(prow, "Pick Photoshop…", self._psd_pick_photoshop, "ghost", width=120, height=28,
             font=F(11)).pack(side="left")
         self.psd_ps_note = ctk.CTkLabel(prow, text="", font=F(11), text_color=C["dim"])
         self.psd_ps_note.pack(side="left", padx=(8, 0))
+        self.psd_ps_lbl = None
 
         self._psd_set_mode(self.cfg.get("psd_mode", "psd"), save=False)
         self._psd_render_sets()
@@ -3006,14 +2989,14 @@ class App:
 
     def _psd_scan(self, folder, quiet=False):
         folder = os.path.normpath(folder.strip().strip('"')) if folder and folder.strip() else ""
+        if folder != self.psd.get("folder"):
+            self.psd["rows"] = {}
         self.psd["folder"] = folder
         self.psd["sets"] = psd_builder.find_sets(folder) if folder else []
-        names = [s["name"] for s in self.psd["sets"] if s["psd"]]
-        guess = psd_builder.guess_slots(self.psd["sets"])
-        for slot in psd_builder.SLOTS:
-            key = slot.lower()
-            if self.psd.get(key) not in names:
-                self.psd[key] = guess[slot] if guess[slot] in names else None
+        rows = self.psd.setdefault("rows", {})
+        for s in self.psd["sets"]:          # keep edits for sets we already knew
+            rows.setdefault(s["name"], {"on": bool(s["psd"]), "name": s["name"],
+                                        "preset": psd_builder.guess_preset(s["name"])})
         if not quiet:
             self.cfg["psd_folder"] = folder
             _save_json(CONFIG_PATH, self.cfg)
@@ -3038,27 +3021,58 @@ class App:
         sets = self.psd["sets"]
         if not sets:
             msg = ("Looks for  <mesh>_<set>.1001.psd  and  <set>_n / _s / _r.tga" if self.psd["folder"]
-                   else "No folder picked yet")
+                   else "Pick a folder above")
             ctk.CTkLabel(f, text=msg, font=F(12), text_color=C["dim"], anchor="w").grid(row=0, column=0, sticky="w")
-        for i, s in enumerate(sets):
-            ctk.CTkLabel(f, text=s["name"], font=F(12, "bold"), text_color=C["text"], anchor="w", width=150).grid(
-                row=i, column=0, sticky="w", pady=2)
-            for j, (label, ok) in enumerate((("PSD", bool(s["psd"])), ("_n", bool(s["n"])),
-                                             ("_s", bool(s["s"])), ("_r", bool(s["r"])))):
-                Pill(f, ("✓ " if ok else "✕ ") + label, "ok" if ok else "bad").grid(row=i, column=1 + j,
-                                                                                   padx=(0, 6), pady=2)
-        names = [s["name"] for s in sets if s["psd"]]
-        for slot, m in self.psd_menus.items():
-            m.configure(values=names + [psd_builder.NONE] if names else [psd_builder.NONE])
-            m.set(self.psd.get(slot.lower()) or psd_builder.NONE)
+            self._psd_refresh_hint()
+            return
+        hdr = dict(font=F(10, "bold"), text_color=C["dim"], anchor="w")
+        for col, text in ((1, "PAINTER EXPORT"), (2, "SAVES AS"), (4, "SHADING"), (5, "FOUND")):
+            ctk.CTkLabel(f, text=text, **hdr).grid(row=0, column=col, sticky="w", padx=(0, 10), pady=(0, 4))
+        om = dict(width=110, height=32, corner_radius=8, fg_color=C["card2"], button_color=C["card2"],
+                  button_hover_color=C["hover"], dropdown_fg_color=C["card"], dropdown_hover_color=C["hover"],
+                  text_color=C["text"], dropdown_text_color=C["text"], font=F(12), dropdown_font=F(12),
+                  dynamic_resizing=False)
+        rows = self.psd["rows"]
+        for i, s in enumerate(sets, start=1):
+            row = rows[s["name"]]
+            var = tk.BooleanVar(value=row["on"] and bool(s["psd"]))
+            cb = ctk.CTkCheckBox(f, text="", variable=var, width=24, checkbox_width=20, checkbox_height=20,
+                                 corner_radius=5, fg_color=C["accent"], hover_color=C["accent_h"],
+                                 border_color=C["border_hi"],
+                                 command=lambda r=row, v=var: (r.update(on=v.get()), self._psd_refresh_hint()))
+            cb.grid(row=i, column=0, padx=(0, 8), pady=3)
+            if not s["psd"]:
+                cb.configure(state="disabled")
+            src = os.path.basename(s["psd"]) if s["psd"] else f"{s['name']}  (no PSD)"
+            ctk.CTkLabel(f, text=src, font=F(12), text_color=C["muted"], anchor="w").grid(
+                row=i, column=1, sticky="w", padx=(0, 12))
+            e = ctk.CTkEntry(f, width=150, height=32, corner_radius=8, fg_color=C["bg"], border_color=C["border"],
+                             font=F(12, "bold"))
+            e.insert(0, row["name"])
+            e.bind("<KeyRelease>", lambda ev, r=row, w=e: (r.update(name=w.get()), self._psd_refresh_hint()))
+            e.grid(row=i, column=2, sticky="w", pady=3)
+            ctk.CTkLabel(f, text=".psd", font=F(12), text_color=C["muted"]).grid(row=i, column=3, sticky="w",
+                                                                                 padx=(4, 14))
+            m = ctk.CTkOptionMenu(f, values=list(psd_builder.SLOTS),
+                                  command=lambda v, r=row: r.update(preset=v), **om)
+            m.set(row["preset"])
+            m.grid(row=i, column=4, sticky="w", padx=(0, 14), pady=3)
+            pills = ctk.CTkFrame(f, fg_color="transparent")
+            pills.grid(row=i, column=5, sticky="w")
+            for label, ok in (("PSD", bool(s["psd"])), ("_n", bool(s["n"])), ("_s", bool(s["s"])),
+                              ("_r", bool(s["r"]))):
+                Pill(pills, ("✓ " if ok else "✕ ") + label, "ok" if ok else "bad").pack(side="left", padx=(0, 4))
         self._psd_refresh_hint()
 
-    def _psd_pick(self, slot, value):
-        self.psd[slot.lower()] = None if value == psd_builder.NONE else value
-        other = "pendant" if slot == "Chain" else "chain"
-        if value != psd_builder.NONE and self.psd.get(other) == value:   # can't be both
-            self.psd[other] = None
-            self.psd_menus["Pendant" if slot == "Chain" else "Chain"].set(psd_builder.NONE)
+    def _psd_jobs(self):
+        """[(set, file name without .psd, preset)] for the ticked sets."""
+        out = []
+        for s in self.psd["sets"]:
+            row = self.psd["rows"].get(s["name"])
+            if row and row["on"] and s["psd"]:
+                n = "".join(ch for ch in row["name"] if ch not in '<>:"/\\|?*').strip() or s["name"]
+                out.append((s, n[:-4] if n.lower().endswith(".psd") else n, row["preset"]))
+        return out
 
     # ---- output options
     def _psd_set_mode(self, key, save=True):
@@ -3075,20 +3089,18 @@ class App:
     def _psd_save_opts(self):
         self.cfg["psd_mode"] = self.psd_mode
         self.cfg["psd_keep_open"] = bool(self.psd_keep.get())
-        self.cfg["psd_name"] = self._psd_doc_name()
         _save_json(CONFIG_PATH, self.cfg)
 
-    def _psd_doc_name(self):
-        n = self.psd_name.get().strip() if hasattr(self, "psd_name") else ""
-        n = "".join(ch for ch in n if ch not in '<>:"/\\|?*').strip() or "Base"
-        return n[:-4] if n.lower().endswith(".psd") else n
-
     def _psd_refresh_hint(self):
-        if not hasattr(self, "psd_out_hint"):
+        if not hasattr(self, "psd_out_hint") or not self.psd_out_hint.winfo_exists():
             return
-        txt = f"Pick which set is which (Painter's names change)  ·  saves  {self._psd_doc_name()}.psd  in the export folder"
+        jobs = self._psd_jobs() if self.psd.get("sets") else []
+        if jobs:
+            txt = "Makes  " + ",  ".join(n + ".psd" for _, n, _ in jobs) + "  in the export folder"
+        else:
+            txt = "Tick at least one texture set above"
         if getattr(self, "psd_mode", "psd") == "both":
-            txt += "\nplus the game files (X.tga, X_n, X_s, X_r) in a  Game textures  folder next to it"
+            txt += "  ·  plus game .tga files in  Game textures"
         self.psd_out_hint.configure(text=txt)
 
     def _psd_refresh_ps_label(self):
@@ -3098,8 +3110,6 @@ class App:
         else:
             allp = psd_builder.installed_photoshops()
             name = os.path.basename(os.path.dirname(allp[0])) if allp else None
-        self.psd_ps_lbl.configure(
-            text="The app writes the PSD itself - Photoshop doesn't need to be open")
         self.psd_ps_note.configure(
             text=("Photoshop is only used for  Export game .tga from a PSD  " +
                   (f"({name})" if name else "- not found, pick it here")),
@@ -3114,19 +3124,23 @@ class App:
             _save_json(CONFIG_PATH, self.cfg)
             self._psd_refresh_ps_label()
 
-    def _psd_open_in_photoshop(self, path):
+    def _psd_open_in_photoshop(self, paths):
         import subprocess
+        paths = [p for p in paths if os.path.isfile(p)]
+        if not paths:
+            return
         ps = self.cfg.get("photoshop_exe")
         if not (ps and os.path.isfile(ps)):
             allp = psd_builder.installed_photoshops()
             ps = allp[0] if allp else None
         try:
             if ps:
-                subprocess.Popen([ps, path])
-            else:
-                self._open_path(path)
+                subprocess.Popen([ps] + paths)
+                return
         except Exception:
-            self._open_path(path)
+            pass
+        for p in paths:
+            self._open_path(p)
 
     def _psd_shading_dialog(self):
         d = ctk.CTkToplevel(self.root)
@@ -3138,7 +3152,7 @@ class App:
         recipe = psd_builder.shading_recipe(self.cfg.get("psd_shading"))
         ctk.CTkLabel(d, text="Shading settings", font=F(16, "bold"), text_color=C["text"]).grid(
             row=0, column=0, columnspan=2, sticky="w", padx=22, pady=(18, 0))
-        ctk.CTkLabel(d, text="Which Painter maps go in each Shading group, and how they blend (top to bottom)",
+        ctk.CTkLabel(d, text="Each texture set uses the Chain or Pendant shading you pick for it  ·  maps top to bottom",
                      font=F(12), text_color=C["muted"]).grid(row=1, column=0, columnspan=2, sticky="w", padx=22)
         rows = {}
         om = dict(width=130, height=30, corner_radius=8, fg_color=C["card2"], button_color=C["card2"],
@@ -3247,25 +3261,28 @@ class App:
         if not self.psd["folder"] or not os.path.isdir(self.psd["folder"]):
             self._psd_set_status("Pick the Painter export folder first.", "warn")
             return
-        by_name = {s["name"]: s for s in self.psd["sets"]}
-        chain, pend = by_name.get(self.psd.get("chain")), by_name.get(self.psd.get("pendant"))
-        if not chain and not pend:
-            self._psd_set_status("Pick a texture set for the Chain or the Pendant.", "warn")
+        jobs = self._psd_jobs()
+        if not jobs:
+            self._psd_set_status("Tick at least one texture set.", "warn")
+            return
+        names = [n.lower() for _, n, _ in jobs]
+        if len(set(names)) != len(names):
+            self._psd_set_status("Two sets have the same PSD name - change one.", "warn")
+            return
+        outs = [os.path.join(self.psd["folder"], n + ".psd") for _, n, _ in jobs]
+        exist = [os.path.basename(o) for o in outs if os.path.exists(o)]
+        if exist and not self.confirm("Replace them?", ", ".join(exist) + (" is" if len(exist) == 1 else " are") +
+                                      " already in that folder. Build new ones over them?", "Replace"):
             return
         self._psd_save_opts()
-        name = self._psd_doc_name()
-        out = os.path.join(self.psd["folder"], name + ".psd")
-        if os.path.exists(out) and not self.confirm(
-                "Replace it?", f"{name}.psd is already in that folder. Build a new one over it?", "Replace"):
-            return
         self.psd["last_out"] = self.psd["folder"]
-        self.psd["open_after"] = out if self.psd_keep.get() else None
+        self.psd["open_after"] = outs if self.psd_keep.get() else None
         self._psd_set_running(True)
         self._psd_set_status("Starting…", "info")
         psd_builder.BuildJob(
             on_progress=lambda t: self.ui_q.put(("call", lambda _, t=t: self._psd_set_status(t, "info"), None)),
             on_done=lambda r: self.ui_q.put(("call", self._psd_done, r)),
-            folder=self.psd["folder"], chain_set=chain, pendant_set=pend, out_psd=out,
+            jobs=[{"set": s_, "out_psd": o, "preset": p} for (s_, n, p), o in zip(jobs, outs)],
             shading=self.cfg.get("psd_shading"), hide_me=asset("hide_me.png"),
             export_dir=os.path.join(self.psd["folder"], "Game textures") if self.psd_mode == "both" else None,
         ).start()
@@ -3289,17 +3306,14 @@ class App:
         warns = res.get("warnings") or []
         made = res.get("exported") or []
         if res.get("ok"):
-            msg = os.path.basename(res.get("message", "").replace("Built ", "")) if "Built" in res.get(
-                "message", "") else res.get("message", "Done")
-            text = ("Built " + msg) if "Built" in res.get("message", "") else msg
+            text = ("Built " + ", ".join(res["made"])) if res.get("made") else res.get("message", "Done")
             if made:
                 text += f"  ·  {len(made)} game file{'s' if len(made) != 1 else ''} in Game textures"
             if warns:
                 text += "\n" + "\n".join("! " + w for w in warns[:4])
             self._psd_set_status(text, "warn" if warns else "ok")
             self.toast(text.splitlines()[0], "ok")
-            if self.psd.get("open_after") and os.path.isfile(self.psd["open_after"]):
-                self._psd_open_in_photoshop(self.psd["open_after"])
+            self._psd_open_in_photoshop(self.psd.get("open_after") or [])
         else:
             self._psd_set_status("Didn't work: " + res.get("message", "unknown problem"), "bad")
             self.toast("PSD Builder hit a problem", "bad")
