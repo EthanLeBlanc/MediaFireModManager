@@ -5,15 +5,19 @@ Painter (with the "MXB" preset) exports, per texture set X:
     <mesh>_X.1001.psd   one PSD holding layers  X, X_ao, X_2D, X_mask, X_curv
     X_n.tga  X_s.tga  X_r.tga
 
-The builder makes this layout (top to bottom), just like Base.psd:
+The app writes this PSD itself (no Photoshop needed), top to bottom:
+    Hide me                      (locked "thank you" overlay)
     Pendant / Chain
-        Rough   -> X_r            (hidden)
-        Spec    -> X_s            (hidden)
-        Norm    -> Inverted for Bikes (green flipped), X_n   (hidden)
-        Base    -> X_mask (hidden helper), Shading (X_ao, X_2D, X_curv), 2 colour fills, X
+        rough  -> X_r
+        spec   -> X_s
+        Norm   -> Bikes (green flipped), X_n
+        Base   -> Shading (X_ao, X_2D, X_curv, X_mask - per the shading recipe), X
+Colour fills are left for you to add.
 
-Photoshop does the work: the app writes a small script and hands it to Photoshop.
+Exporting game textures from a finished PSD (after your masks and colours) still uses Photoshop,
+because only Photoshop can blend your edits exactly.
 """
+import copy
 import glob
 import json
 import os
@@ -25,21 +29,49 @@ import threading
 import time
 import uuid
 
+from PIL import Image, ImageChops
+
+import psd_writer
+
 # ------------------------------------------------------------ the recipe
-# Blend mode + opacity for each Painter map. Change these to change every new PSD.
-SHADING = {
-    "ao":   {"blend": "MULTIPLY",  "opacity": 70},
-    "2D":   {"blend": "SOFTLIGHT", "opacity": 60},
-    "curv": {"blend": "OVERLAY",   "opacity": {"Chain": 20, "Pendant": 39}},
+# Shading layers, top to bottom, per part. Editable in the app (saved in the config).
+MAPS = ("ao", "2D", "curv", "mask")
+DEFAULT_SHADING = {
+    "Chain": [
+        {"map": "ao", "blend": "Multiply", "opacity": 50, "on": True},
+        {"map": "2D", "blend": "Overlay", "opacity": 60, "on": True},
+        {"map": "curv", "blend": "Overlay", "opacity": 25, "on": False},
+        {"map": "mask", "blend": "Multiply", "opacity": 100, "on": False},
+    ],
+    "Pendant": [
+        {"map": "ao", "blend": "Multiply", "opacity": 70, "on": True},
+        {"map": "2D", "blend": "Overlay", "opacity": 60, "on": True},
+        {"map": "curv", "blend": "Overlay", "opacity": 25, "on": True},
+        {"map": "mask", "blend": "Multiply", "opacity": 100, "on": True},
+    ],
 }
-# Colour fills added in each part's Base group (bottom one first). White = no change on Multiply.
-FILLS = {
-    "Chain":   [("Clasp color", (255, 255, 255)), ("Chain color", (255, 255, 255))],
-    "Pendant": [("Plate color", (255, 255, 255)), ("Pendant color", (255, 255, 255))],
-}
-FLIPPED_NORMAL_NAME = "Inverted for Bikes"
-SLOTS = ("Chain", "Pendant")          # top-level groups (Pendant ends up on top)
+FLIPPED_NORMAL_NAME = "Bikes"
+HIDE_ME_NAME = "Hide me"
+SLOTS = ("Chain", "Pendant")          # Pendant group ends up on top
 NONE = "— none —"
+
+
+def shading_recipe(saved=None):
+    """Defaults merged with what the user saved; always every map, in MAPS order."""
+    out = copy.deepcopy(DEFAULT_SHADING)
+    for slot in SLOTS:
+        got = {r.get("map"): r for r in (saved or {}).get(slot, []) if isinstance(r, dict)}
+        for row in out[slot]:
+            r = got.get(row["map"])
+            if r:
+                if r.get("blend") in psd_writer.BLEND_NAMES:
+                    row["blend"] = r["blend"]
+                try:
+                    row["opacity"] = max(0, min(100, int(r.get("opacity", row["opacity"]))))
+                except (TypeError, ValueError):
+                    pass
+                row["on"] = bool(r.get("on", row["on"]))
+    return out
 
 UDIM_RE = re.compile(r"\.\d{4}$")     # the ".1001" Painter adds
 
@@ -174,63 +206,12 @@ function finish(ok, msg, extra) {
     f.write('{"ok":' + (ok ? 'true' : 'false') + ',"message":' + q(msg) + ',"warnings":[' + w + ']' + (extra || '') + '}');
     f.close();
 }
-function blendOf(n) {
-    return { MULTIPLY: BlendMode.MULTIPLY, SOFTLIGHT: BlendMode.SOFTLIGHT, OVERLAY: BlendMode.OVERLAY,
-             SCREEN: BlendMode.SCREEN, NORMAL: BlendMode.NORMAL }[n] || BlendMode.NORMAL;
-}
-function findLayer(doc, name, suffix) {
-    var L = doc.artLayers, i;
-    for (i = 0; i < L.length; i++) if (L[i].name == name) return L[i];
-    for (i = 0; i < L.length; i++) if (L[i].name.toLowerCase() == name.toLowerCase()) return L[i];
-    if (suffix) for (i = 0; i < L.length; i++) {
-        var n = L[i].name.toLowerCase();
-        if (n.length > suffix.length && n.substr(n.length - suffix.length) == suffix.toLowerCase()) return L[i];
-    }
+// find a group inside a group by name, ignoring upper/lower case
+function subSet(parent, name) {
+    for (var i = 0; i < parent.layerSets.length; i++)
+        if (parent.layerSets[i].name.replace(/\s+$/, "").toLowerCase() == name.toLowerCase()) return parent.layerSets[i];
     return null;
 }
-// copy a layer from the Painter PSD into a group of the new doc (lands on top of that group)
-function copyLayer(src, doc, set, name, suffix) {
-    app.activeDocument = src;
-    var L = findLayer(src, name, suffix);
-    if (!L) { warn("Layer '" + name + "' not found in " + src.name); return null; }
-    var d = L.duplicate(doc, ElementPlacement.PLACEATBEGINNING);
-    app.activeDocument = doc;
-    d.move(set, ElementPlacement.INSIDE);
-    d.name = name;
-    d.blendMode = BlendMode.NORMAL; d.opacity = 100; d.visible = true;
-    return d;
-}
-function makeFill(name, rgb) {
-    var d = new ActionDescriptor(), ref = new ActionReference();
-    ref.putClass(stringIDToTypeID("contentLayer"));
-    d.putReference(charIDToTypeID("null"), ref);
-    var d2 = new ActionDescriptor(), d3 = new ActionDescriptor(), c = new ActionDescriptor();
-    c.putDouble(charIDToTypeID("Rd  "), rgb[0]); c.putDouble(charIDToTypeID("Grn "), rgb[1]);
-    c.putDouble(charIDToTypeID("Bl  "), rgb[2]);
-    d3.putObject(charIDToTypeID("Clr "), charIDToTypeID("RGBC"), c);
-    d2.putObject(charIDToTypeID("Type"), stringIDToTypeID("solidColorLayer"), d3);
-    d.putObject(charIDToTypeID("Usng"), stringIDToTypeID("contentLayer"), d2);
-    executeAction(charIDToTypeID("Mk  "), d, DialogModes.NO);
-    var L = app.activeDocument.activeLayer;
-    L.name = name; L.blendMode = BlendMode.MULTIPLY;
-    return L;
-}
-// place a file as an embedded smart object inside a group
-function placeInto(doc, set, path, name) {
-    var f = new File(path);
-    if (!f.exists) { warn("Missing file: " + path); return null; }
-    app.activeDocument = doc;
-    var d = new ActionDescriptor();
-    d.putPath(charIDToTypeID("null"), f);
-    d.putEnumerated(charIDToTypeID("FTcs"), charIDToTypeID("QCSt"), charIDToTypeID("Qcsa"));
-    executeAction(charIDToTypeID("Plc "), d, DialogModes.NO);
-    var L = doc.activeLayer;
-    L.move(set, ElementPlacement.INSIDE);
-    L.name = name;
-    return L;
-}
-function toSmartObject() { executeAction(stringIDToTypeID("newPlacedLayer"), undefined, DialogModes.NO); }
-
 // ---------------------------------------------------------- export
 function exportVisible(doc, file) {
     var d = doc.duplicate("tw_export", true);
@@ -246,8 +227,8 @@ function exportVisible(doc, file) {
 }
 function setNameOf(part) {
     try {
-        var base = part.layerSets.getByName("Base");
-        if (base.artLayers.length) return base.artLayers[base.artLayers.length - 1].name;
+        var base = subSet(part, "Base");
+        if (base && base.artLayers.length) return base.artLayers[base.artLayers.length - 1].name;
     } catch (e) {}
     return part.name;
 }
@@ -263,7 +244,8 @@ function exportGame(doc, outDir, srcDir) {
         var part = doc.layerSets[i];
         var subs = [];
         for (j = 0; j < maps.length; j++) {
-            try { subs.push([maps[j], part.layerSets.getByName(maps[j][0])]); } catch (e) {}
+            var sub = subSet(part, maps[j][0]);
+            if (sub) subs.push([maps[j], sub]);
         }
         if (!subs.length) continue;
         var X = setNameOf(part);
@@ -291,107 +273,6 @@ function exportGame(doc, outDir, srcDir) {
     for (j = 0; j < top.length; j++) top[j][0].visible = top[j][1];
     return made;
 }
-"""
-
-JSX_BUILD = r"""
-function buildPart(doc, p, src) {
-    log("Building " + p.slot + " from " + p.set);
-    app.activeDocument = doc;
-    var grp = doc.layerSets.add(); grp.name = p.slot;
-
-    // ---- Base
-    var base = grp.layerSets.add(); base.name = "Base";
-    var art = copyLayer(src, doc, base, p.set, null);
-    if (!art) {   // fall back to the bottom layer of the Painter PSD
-        app.activeDocument = src;
-        var bottom = src.artLayers[src.artLayers.length - 1];
-        art = copyLayer(src, doc, base, bottom.name, null);
-        if (art) art.name = p.set;
-    }
-    app.activeDocument = doc;
-    if (art) doc.activeLayer = art; else doc.activeLayer = base;
-    for (var i = 0; i < p.fills.length; i++) {
-        var fl = makeFill(p.fills[i][0], p.fills[i][1]);
-        if (!art) fl.move(base, ElementPlacement.INSIDE);
-    }
-    var sh = base.layerSets.add(); sh.name = "Shading";
-    var order = ["curv", "2D", "ao"];           // bottom to top
-    for (i = 0; i < order.length; i++) {
-        var k = order[i], st = p.shading[k];
-        var L = copyLayer(src, doc, sh, p.set + "_" + k, "_" + k);
-        if (L) { L.blendMode = blendOf(st.blend); L.opacity = st.opacity; }
-    }
-    var mk = copyLayer(src, doc, base, p.set + "_mask", "_mask");
-    if (mk) mk.visible = false;
-
-    // ---- Norm (original + green flipped for the game)
-    var norm = grp.layerSets.add(); norm.name = "Norm";
-    var n = p.n ? placeInto(doc, norm, p.n, p.set + "_n") : null;
-    if (n) {
-        var f = n.duplicate();
-        f.rasterize(RasterizeType.ENTIRELAYER);
-        doc.activeLayer = f;
-        doc.activeChannels = [doc.channels[1]];
-        f.invert();
-        doc.activeChannels = doc.componentChannels;
-        toSmartObject();
-        f = doc.activeLayer;
-        f.name = CFG.flipped_name;
-    } else warn(p.set + "_n.tga not found - Norm group is empty");
-
-    // ---- Spec / Rough
-    var spec = grp.layerSets.add(); spec.name = "Spec";
-    if (p.s) placeInto(doc, spec, p.s, p.set + "_s"); else warn(p.set + "_s.tga not found");
-    var rough = grp.layerSets.add(); rough.name = "Rough";
-    if (p.r) placeInto(doc, rough, p.r, p.set + "_r"); else warn(p.set + "_r.tga not found");
-
-    norm.visible = false; spec.visible = false; rough.visible = false;
-}
-
-(function () {
-    var oldUnits = app.preferences.rulerUnits, oldDlg = app.displayDialogs;
-    var opened = [];
-    try {
-        app.preferences.rulerUnits = Units.PIXELS;
-        app.displayDialogs = DialogModes.NO;
-        log("Opening " + CFG.parts[0].psd);
-        var first = open(new File(CFG.parts[0].psd)); opened.push(first);
-        var W = first.width.as("px"), H = first.height.as("px"), RES = first.resolution;
-        var doc = app.documents.add(UnitValue(W, "px"), UnitValue(H, "px"), RES, CFG.doc_name,
-                                    NewDocumentMode.RGB, DocumentFill.TRANSPARENT, 1, BitsPerChannelType.EIGHT);
-        var blank = doc.artLayers[0];
-        for (var i = 0; i < CFG.parts.length; i++) {
-            var p = CFG.parts[i];
-            var src = i == 0 ? first : open(new File(p.psd));
-            if (i) opened.push(src);
-            app.activeDocument = src;
-            if (src.width.as("px") != W || src.height.as("px") != H)
-                warn(p.set + " is " + src.width.as("px") + "x" + src.height.as("px") + ", not " + W + "x" + H);
-            buildPart(doc, p, src);
-        }
-        app.activeDocument = doc;
-        try { blank.remove(); } catch (e) {}
-        for (i = 0; i < opened.length; i++) opened[i].close(SaveOptions.DONOTSAVECHANGES);
-        opened = [];
-        app.activeDocument = doc;
-
-        var o = new PhotoshopSaveOptions();
-        o.layers = true; o.embedColorProfile = true; o.alphaChannels = true;
-        log("Saving " + CFG.out_psd);
-        doc.saveAs(new File(CFG.out_psd), o, false, Extension.LOWERCASE);
-
-        var made = [];
-        if (CFG.export_dir) made = exportGame(doc, CFG.export_dir, CFG.tga_src_dir);
-        if (!CFG.keep_open) doc.close(SaveOptions.DONOTSAVECHANGES);
-        var m = ""; for (i = 0; i < made.length; i++) m += (i ? "," : "") + q(made[i]);
-        finish(true, "Built " + CFG.out_psd, ',"exported":[' + m + ']');
-    } catch (e) {
-        for (var j = 0; j < opened.length; j++) try { opened[j].close(SaveOptions.DONOTSAVECHANGES); } catch (e2) {}
-        finish(false, e.message + " (script line " + e.line + ")");
-    } finally {
-        app.preferences.rulerUnits = oldUnits; app.displayDialogs = oldDlg;
-    }
-})();
 """
 
 JSX_EXPORT = r"""
@@ -426,47 +307,14 @@ def _header(cfg):
     return "#target photoshop\n// Made by Terps WorkFlow - PSD Builder\nvar CFG = " + json.dumps(cfg) + ";\n"
 
 
-def build_cfg(folder, chain_set, pendant_set, doc_name="Base", export_game=False,
-                 keep_open=True, out_dir=None):
-    """Returns the script settings. chain_set / pendant_set are set dicts from find_sets (or None)."""
-    out_dir = out_dir or folder
-    doc_name = (doc_name or "Base").strip()
-    if doc_name.lower().endswith(".psd"):
-        doc_name = doc_name[:-4]
-    parts = []
-    for slot, s in (("Chain", chain_set), ("Pendant", pendant_set)):   # Chain first -> Pendant on top
-        if not s:
-            continue
-        if not s.get("psd"):
-            raise ValueError(f"No Painter PSD found for '{s['name']}'")
-        parts.append({
-            "slot": slot, "set": s["name"], "psd": _js_path(s["psd"]),
-            "n": _js_path(s.get("n")), "s": _js_path(s.get("s")), "r": _js_path(s.get("r")),
-            "fills": [[n, list(c)] for n, c in FILLS[slot]],
-            "shading": {k: {"blend": v["blend"],
-                            "opacity": v["opacity"][slot] if isinstance(v["opacity"], dict) else v["opacity"]}
-                        for k, v in SHADING.items()},
-        })
-    if not parts:
-        raise ValueError("Pick a texture set for the Chain or the Pendant")
-    cfg = {
-        "parts": parts, "doc_name": doc_name,
-        "out_psd": _js_path(os.path.join(out_dir, doc_name + ".psd")),
-        "export_dir": _js_path(os.path.join(out_dir, "Game textures")) if export_game else None,
-        "tga_src_dir": _js_path(folder), "keep_open": bool(keep_open),
-        "flipped_name": FLIPPED_NORMAL_NAME,
-    }
-    return cfg
-
-
 def export_script_cfg(psd_path):
     folder = os.path.dirname(psd_path)
     return {"psd": _js_path(psd_path), "export_dir": _js_path(os.path.join(folder, "Game textures")),
             "tga_src_dir": _js_path(folder)}
 
 
-def make_jsx(cfg, kind="build"):
-    return _header(cfg) + JSX_LIB + (JSX_BUILD if kind == "build" else JSX_EXPORT)
+def make_jsx(cfg, kind="export"):
+    return _header(cfg) + JSX_LIB + JSX_EXPORT
 
 
 # --------------------------------------------------------- running it
@@ -523,4 +371,162 @@ class Job:
             res = {"ok": False, "message": str(e), "warnings": []}
         if res.get("ok"):          # keep the script around after a problem so it can be run by hand
             shutil.rmtree(self.work, ignore_errors=True)
+        self.on_done(res)
+
+
+# --------------------------------------------------------- building (no Photoshop)
+def _painter_layers(psd_path):
+    """{layer name: PIL image} for every layer in a Painter export PSD."""
+    im = Image.open(psd_path)
+    out = {}
+    for i, info in enumerate(im.layers):
+        im.seek(i + 1)
+        out[info[0]] = im.copy()
+    size = im.size
+    im.close()
+    return out, size
+
+
+def _find(layers, name, suffix=None):
+    if name in layers:
+        return layers[name]
+    low = {k.lower(): v for k, v in layers.items()}
+    if name.lower() in low:
+        return low[name.lower()]
+    if suffix:
+        for k, v in layers.items():
+            if k.lower().endswith(suffix.lower()) and len(k) > len(suffix):
+                return v
+    return None
+
+
+def _flip_green(img):
+    r, g, b = img.convert("RGB").split()
+    return Image.merge("RGB", (r, g.point(lambda v: 255 - v), b))
+
+
+def _blend(base, top, mode, opacity):
+    """Approximate Photoshop blend of an opaque layer over base (both RGB)."""
+    mode = (mode or "normal").lower().replace(" ", "")
+    fn = {"multiply": ImageChops.multiply, "overlay": ImageChops.overlay, "softlight": ImageChops.soft_light,
+          "hardlight": ImageChops.hard_light, "screen": ImageChops.screen, "darken": ImageChops.darker,
+          "lighten": ImageChops.lighter}.get(mode)
+    mixed = fn(base, top) if fn else top
+    return Image.blend(base, mixed, max(0, min(100, opacity)) / 100.0)
+
+
+def build_psd(folder, chain_set, pendant_set, out_psd, shading=None, export_dir=None,
+              hide_me=None, progress=lambda t: None):
+    """Write the PSD. Returns {"ok", "message", "warnings", "exported"}."""
+    warnings, exported = [], []
+    recipe = shading_recipe(shading)
+    parts = [(slot, s) for slot, s in (("Pendant", pendant_set), ("Chain", chain_set)) if s]  # top first
+    if not parts:
+        raise ValueError("Pick a texture set for the Chain or the Pendant")
+    for slot, s in parts:
+        if not s.get("psd"):
+            raise ValueError(f"No Painter PSD found for '{s['name']}'")
+
+    doc = None
+    game = {}
+    for slot, s in parts:
+        X = s["name"]
+        progress(f"Reading {X} ({slot})…")
+        layers, size = _painter_layers(s["psd"])
+        if doc is None:
+            doc = psd_writer.Doc(*size)
+            if hide_me and os.path.isfile(hide_me):
+                img = Image.open(hide_me).convert("RGBA")
+                if img.size != size:
+                    img = img.resize(size)
+                doc.layer(HIDE_ME_NAME, img, locked=True)
+        elif size != (doc.width, doc.height):
+            warnings.append(f"{X} is {size[0]}x{size[1]}, not {doc.width}x{doc.height}")
+
+        g = doc.group(slot)
+        rough, spec, norm, base = g.group("rough"), g.group("spec"), g.group("Norm"), g.group("Base")
+
+        def tga(key, label):
+            p = s.get(key)
+            if not p:
+                warnings.append(f"{X}_{key}.tga not found - {label} group is empty")
+                return None
+            return Image.open(p)
+
+        img = tga("r", "rough")
+        if img:
+            rough.layer(f"{X}_r", img.convert("RGB"))
+        img = tga("s", "spec")
+        if img:
+            spec.layer(f"{X}_s", img.convert("RGB"))
+        img = tga("n", "Norm")
+        flipped = None
+        if img:
+            flipped = _flip_green(img)
+            norm.layer(FLIPPED_NORMAL_NAME, flipped)
+            norm.layer(f"{X}_n", img.convert("RGB"))
+
+        shade = base.group("Shading")
+        stack = []
+        for row in recipe[slot]:
+            if not row["on"]:
+                continue
+            L = _find(layers, f"{X}_{row['map']}", "_" + row["map"])
+            if L is None:
+                warnings.append(f"Layer {X}_{row['map']} not in {os.path.basename(s['psd'])}")
+                continue
+            shade.layer(f"{X}_{row['map']}", L, blend=row["blend"], opacity=row["opacity"])
+            stack.append((L, row))
+        art = _find(layers, X)
+        if art is None:     # fall back to the bottom layer of the Painter PSD
+            art = list(layers.values())[-1] if layers else None
+            if art is not None:
+                warnings.append(f"No layer called '{X}' - used the bottom layer as the art")
+        if art is not None:
+            base.layer(X, art)
+        game[X] = (art, stack, flipped, s)
+
+    progress("Saving " + os.path.basename(out_psd) + "…")
+    tmp = out_psd + ".part"
+    doc.save(tmp)
+    os.replace(tmp, out_psd)
+
+    if export_dir:
+        os.makedirs(export_dir, exist_ok=True)
+        for X, (art, stack, flipped, s) in game.items():
+            progress(f"Writing game textures for {X}…")
+            if art is not None:
+                out = art.convert("RGB")
+                for L, row in reversed(stack):        # bottom layer first
+                    out = _blend(out, L.convert("RGB"), row["blend"], row["opacity"])
+                out.save(os.path.join(export_dir, X + ".tga"))
+                exported.append(X + ".tga")
+            if flipped is not None:
+                flipped.save(os.path.join(export_dir, X + "_n.tga"))
+                exported.append(X + "_n.tga")
+            for key in ("s", "r"):
+                if s.get(key):
+                    shutil.copy2(s[key], os.path.join(export_dir, f"{X}_{key}.tga"))
+                    exported.append(f"{X}_{key}.tga")
+    return {"ok": True, "message": "Built " + out_psd, "warnings": warnings, "exported": exported}
+
+
+class BuildJob:
+    """Runs build_psd on a background thread. Callbacks run on that thread - hand them to the UI yourself."""
+
+    def __init__(self, on_progress, on_done, **kw):
+        self.kw, self.on_progress, self.on_done = kw, on_progress, on_done
+
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+        return self
+
+    def _run(self):
+        try:
+            res = build_psd(progress=self.on_progress, **self.kw)
+        except Exception as e:
+            msg = str(e)
+            if isinstance(e, PermissionError):
+                msg = "Couldn't save - is that PSD open in Photoshop? Close it and try again."
+            res = {"ok": False, "message": msg, "warnings": []}
         self.on_done(res)

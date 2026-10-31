@@ -35,6 +35,7 @@ except Exception:
 
 from mediafire_api import MediaFireClient, MFError, share_link
 import psd_builder
+import psd_writer
 import updater
 import app_version
 VERSION = app_version.VERSION
@@ -2956,10 +2957,12 @@ class App:
             b.grid(row=1, column=4 + j, sticky="w", padx=(10 if not j else 6, 0), pady=3)
             self.psd_mode_btns[key] = b
         self.psd_keep = tk.BooleanVar(value=self.cfg.get("psd_keep_open", True))
-        ctk.CTkSwitch(mid, text="Leave it open in Photoshop for masks and colours", variable=self.psd_keep,
+        ctk.CTkSwitch(mid, text="Open it in Photoshop when it's done", variable=self.psd_keep,
                       onvalue=True, offvalue=False, progress_color=C["accent"], button_color=C["knob"],
                       fg_color=C["card2"], font=F(12), text_color=C["text"], command=self._psd_save_opts).grid(
             row=2, column=3, columnspan=3, sticky="w", pady=(8, 0))
+        Btn(mid, "Shading settings…", self._psd_shading_dialog, "secondary", width=150).grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         # 3 - build
         c4 = self._card(body, 2)
@@ -2986,8 +2989,8 @@ class App:
         prow.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(12, 16), padx=(0, 20))
         Btn(prow, "Pick Photoshop…", self._psd_pick_photoshop, "ghost", width=120, height=28,
             font=F(11)).pack(side="left")
-        ctk.CTkLabel(prow, text="If Photoshop asks whether to run the script, click Run.", font=F(11),
-                     text_color=C["dim"]).pack(side="left", padx=(8, 0))
+        self.psd_ps_note = ctk.CTkLabel(prow, text="", font=F(11), text_color=C["dim"])
+        self.psd_ps_note.pack(side="left", padx=(8, 0))
 
         self._psd_set_mode(self.cfg.get("psd_mode", "psd"), save=False)
         self._psd_render_sets()
@@ -3096,9 +3099,11 @@ class App:
             allp = psd_builder.installed_photoshops()
             name = os.path.basename(os.path.dirname(allp[0])) if allp else None
         self.psd_ps_lbl.configure(
-            text=f"Uses the Photoshop you have open, otherwise {name}" if name else
-                 "Photoshop wasn't found - click Pick Photoshop… below",
-            text_color=C["muted"] if name else C["warn"])
+            text="The app writes the PSD itself - Photoshop doesn't need to be open")
+        self.psd_ps_note.configure(
+            text=("Photoshop is only used for  Export game .tga from a PSD  " +
+                  (f"({name})" if name else "- not found, pick it here")),
+            text_color=C["dim"] if name else C["warn"])
 
     def _psd_pick_photoshop(self):
         start = os.path.dirname(self.cfg.get("photoshop_exe") or "") or r"C:\Program Files\Adobe"
@@ -3108,6 +3113,98 @@ class App:
             self.cfg["photoshop_exe"] = os.path.normpath(p)
             _save_json(CONFIG_PATH, self.cfg)
             self._psd_refresh_ps_label()
+
+    def _psd_open_in_photoshop(self, path):
+        import subprocess
+        ps = self.cfg.get("photoshop_exe")
+        if not (ps and os.path.isfile(ps)):
+            allp = psd_builder.installed_photoshops()
+            ps = allp[0] if allp else None
+        try:
+            if ps:
+                subprocess.Popen([ps, path])
+            else:
+                self._open_path(path)
+        except Exception:
+            self._open_path(path)
+
+    def _psd_shading_dialog(self):
+        d = ctk.CTkToplevel(self.root)
+        d.title("Shading settings")
+        d.configure(fg_color=C["bg"])
+        d.resizable(False, False)
+        d.transient(self.root)
+        set_window_icon(d)
+        recipe = psd_builder.shading_recipe(self.cfg.get("psd_shading"))
+        ctk.CTkLabel(d, text="Shading settings", font=F(16, "bold"), text_color=C["text"]).grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=22, pady=(18, 0))
+        ctk.CTkLabel(d, text="Which Painter maps go in each Shading group, and how they blend (top to bottom)",
+                     font=F(12), text_color=C["muted"]).grid(row=1, column=0, columnspan=2, sticky="w", padx=22)
+        rows = {}
+        om = dict(width=130, height=30, corner_radius=8, fg_color=C["card2"], button_color=C["card2"],
+                  button_hover_color=C["hover"], dropdown_fg_color=C["card"], dropdown_hover_color=C["hover"],
+                  text_color=C["text"], dropdown_text_color=C["text"], font=F(12), dropdown_font=F(12),
+                  dynamic_resizing=False)
+
+        def fill(slot_rows, values):
+            for (sw, bl, op), row in zip(slot_rows, values):
+                sw.select() if row["on"] else sw.deselect()
+                bl.set(row["blend"])
+                op.delete(0, "end")
+                op.insert(0, str(row["opacity"]))
+
+        for col, slot in enumerate(psd_builder.SLOTS):
+            card = ctk.CTkFrame(d, fg_color=C["card"], corner_radius=12, border_width=1, border_color=C["border"])
+            card.grid(row=2, column=col, sticky="n", padx=(22 if col == 0 else 6, 22 if col == 1 else 6), pady=14)
+            ctk.CTkLabel(card, text=slot, font=F(13, "bold"), text_color=C["text"]).grid(
+                row=0, column=0, columnspan=4, sticky="w", padx=14, pady=(12, 6))
+            slot_rows = []
+            for i, row in enumerate(recipe[slot]):
+                sw = ctk.CTkSwitch(card, text="_" + row["map"], width=80, onvalue=True, offvalue=False,
+                                   progress_color=C["accent"], button_color=C["knob"], fg_color=C["card2"],
+                                   font=F(12), text_color=C["text"])
+                sw.grid(row=i + 1, column=0, sticky="w", padx=(14, 6), pady=4)
+                bl = ctk.CTkOptionMenu(card, values=psd_writer.BLEND_NAMES, **om)
+                bl.grid(row=i + 1, column=1, pady=4)
+                op = ctk.CTkEntry(card, width=52, height=30, corner_radius=8, fg_color=C["bg"],
+                                  border_color=C["border"], font=F(12), justify="right")
+                op.grid(row=i + 1, column=2, padx=(6, 2), pady=4)
+                ctk.CTkLabel(card, text="%", font=F(12), text_color=C["muted"]).grid(row=i + 1, column=3,
+                                                                                     padx=(0, 14))
+                slot_rows.append((sw, bl, op))
+            rows[slot] = slot_rows
+            ctk.CTkFrame(card, height=8, fg_color="transparent").grid(row=9, column=0)
+            fill(slot_rows, recipe[slot])
+
+        def save():
+            out = {}
+            for slot in psd_builder.SLOTS:
+                out[slot] = []
+                for (sw, bl, op), row in zip(rows[slot], recipe[slot]):
+                    try:
+                        val = max(0, min(100, int(float(op.get().strip() or 0))))
+                    except ValueError:
+                        val = row["opacity"]
+                    out[slot].append({"map": row["map"], "blend": bl.get(), "opacity": val, "on": bool(sw.get())})
+            self.cfg["psd_shading"] = out
+            _save_json(CONFIG_PATH, self.cfg)
+            d.destroy()
+            self.toast("Shading settings saved", "ok")
+
+        def reset():
+            for slot in psd_builder.SLOTS:
+                fill(rows[slot], psd_builder.DEFAULT_SHADING[slot])
+
+        bar = ctk.CTkFrame(d, fg_color="transparent")
+        bar.grid(row=3, column=0, columnspan=2, sticky="ew", padx=22, pady=(0, 18))
+        Btn(bar, "Reset to template", reset, "ghost", width=130).pack(side="left")
+        Btn(bar, "Save", save, "primary", width=90).pack(side="right")
+        Btn(bar, "Cancel", d.destroy, "secondary", width=90).pack(side="right", padx=8)
+        d.update_idletasks()
+        x = self.root.winfo_rootx() + max(0, (self.root.winfo_width() - d.winfo_width()) // 2)
+        y = self.root.winfo_rooty() + max(0, (self.root.winfo_height() - d.winfo_height()) // 3)
+        d.geometry(f"+{x}+{y}")
+        d.after(50, d.grab_set)
 
     # ---- running
     def _psd_set_status(self, text, kind="muted"):
@@ -3161,13 +3258,17 @@ class App:
         if os.path.exists(out) and not self.confirm(
                 "Replace it?", f"{name}.psd is already in that folder. Build a new one over it?", "Replace"):
             return
-        try:
-            cfg = psd_builder.build_cfg(self.psd["folder"], chain, pend, name,
-                                        export_game=self.psd_mode == "both", keep_open=self.psd_keep.get())
-        except ValueError as e:
-            self._psd_set_status(str(e), "bad")
-            return
-        self._psd_start(cfg, "build", self.psd["folder"])
+        self.psd["last_out"] = self.psd["folder"]
+        self.psd["open_after"] = out if self.psd_keep.get() else None
+        self._psd_set_running(True)
+        self._psd_set_status("Starting…", "info")
+        psd_builder.BuildJob(
+            on_progress=lambda t: self.ui_q.put(("call", lambda _, t=t: self._psd_set_status(t, "info"), None)),
+            on_done=lambda r: self.ui_q.put(("call", self._psd_done, r)),
+            folder=self.psd["folder"], chain_set=chain, pendant_set=pend, out_psd=out,
+            shading=self.cfg.get("psd_shading"), hide_me=asset("hide_me.png"),
+            export_dir=os.path.join(self.psd["folder"], "Game textures") if self.psd_mode == "both" else None,
+        ).start()
 
     def _psd_pick_export(self):
         p = filedialog.askopenfilename(title="Pick the finished PSD", initialdir=self.psd["folder"] or None,
@@ -3178,6 +3279,7 @@ class App:
     def _psd_export_from(self, path):
         if self.psd["running"]:
             return
+        self.psd["open_after"] = None
         self.show_page("psd")
         self._psd_start(psd_builder.export_script_cfg(os.path.normpath(path)), "export",
                         os.path.join(os.path.dirname(os.path.normpath(path)), "Game textures"))
@@ -3196,6 +3298,8 @@ class App:
                 text += "\n" + "\n".join("! " + w for w in warns[:4])
             self._psd_set_status(text, "warn" if warns else "ok")
             self.toast(text.splitlines()[0], "ok")
+            if self.psd.get("open_after") and os.path.isfile(self.psd["open_after"]):
+                self._psd_open_in_photoshop(self.psd["open_after"])
         else:
             self._psd_set_status("Didn't work: " + res.get("message", "unknown problem"), "bad")
             self.toast("PSD Builder hit a problem", "bad")

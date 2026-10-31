@@ -19,7 +19,7 @@ Get **TerpsWorkFlow.exe** from the [latest release](../../releases/latest) and r
 - **Watched folders.** When a mod changes on your PC, the app tells you. Turn on Auto and it uploads by itself.
 - **Storage meter.** See how much of your MediaFire storage you're using at the bottom of the sidebar; click it for details.
 - **Themes.** Open **Settings** in the sidebar (or click the gear) and click any of the 12 themes to switch instantly. The spooky ones (Halloween, Blood Moon, Ghostly, Witch's Brew, Candy Corn) add an animated night scene to the sidebar with bats, ghosts, a bubbling cauldron or falling candy corn. Arctic is a light theme.
-- **PSD Builder.** Point it at a Substance Painter export (MXB preset) and it builds your Chain + Pendant PSD in Photoshop: Base / Norm / Spec / Rough groups, the shading maps with the right blend and opacity, colour fills ready for masks, and the green-flipped normal for the game. It can also write the game `.tga` files, or export them later from your finished PSD.
+- **PSD Builder.** Point it at a Substance Painter export (MXB preset) and the app writes your Chain + Pendant PSD itself, no Photoshop needed: the locked Hide me layer, rough / spec / Norm (with the green-flipped Bikes normal) / Base groups, and the shading maps with your blend modes and opacities (change them in Shading settings). It can also write the game `.tga` files, or export them from your finished PSD in Photoshop once you've done the colours.
 - **Self-updating.** When the app opens it checks for a newer release here, shows what's new and installs it.
 
 | Uploads | Watched | Update prompt |
@@ -68,7 +68,9 @@ python mediafire_mod_manager.py
 |---|---|
 | `mediafire_mod_manager.py` | the app (window, uploads, history, watched folders, updates) |
 | `mediafire_api.py` | MediaFire API client (login, folders, uploads that keep the link) |
-| `psd_builder.py` | PSD Builder: finds Painter texture sets and writes the Photoshop script (blend modes and opacities are at the top) |
+| `psd_builder.py` | PSD Builder: finds Painter texture sets and builds the PSD (default shading recipe is at the top) |
+| `psd_writer.py` | small layered-PSD writer used by the PSD Builder |
+| `assets/hide_me.png` | the locked "Thank you for shopping" layer added to every built PSD |
 | `updater.py` | checks GitHub releases, downloads and checks the new exe, swaps it in |
 | `app_version.py` | version number and update source (written by `set_version.py`) |
 | `set_version.py` | stamps the version for `build.bat` and the GitHub build |

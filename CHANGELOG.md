@@ -3,6 +3,15 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.10.0
+- PSD Builder no longer needs Photoshop - the app writes the PSD itself in a few seconds
+- New layout from your template: Hide me (locked) on top, then Pendant and Chain, each with rough, spec, Norm (Bikes + _n) and Base
+- Shading now: ao Multiply, 2D Overlay 60%, curv Overlay 25%, and _mask (Multiply) inside Shading; pendant ao 70%, chain ao 50%
+- Colour fills are left for you to add
+- "Shading settings…" lets you change which maps go in and their blend and opacity, per part
+- "Open it in Photoshop when it's done" opens the new PSD for you
+- Photoshop is still used for "Export game .tga from a PSD", so your masks and colours come out exactly right
+
 ## 2.9.0
 - New PSD Builder page in the sidebar: turns a Substance Painter export into your Chain + Pendant PSD in Photoshop
   - Finds the texture sets by itself, whatever Painter named them - you just pick which is Chain and which is Pendant
