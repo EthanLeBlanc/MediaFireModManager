@@ -3,6 +3,10 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.7.0
+- Themes switch instantly - click one in Settings and the whole app changes right away, no restart
+- Uploads keep running, and your folder, notes, storage and sign-in stay put while you switch
+
 ## 2.6.0
 - Four new Halloween themes, each with its own animated sidebar scene:
   - Blood Moon: a huge red moon over the graveyard, with bats

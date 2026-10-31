@@ -413,6 +413,8 @@ class PumpkinLogo(tk.Canvas):
 
     def _flicker(self):
         import random
+        if not self.winfo_exists():
+            return
         col = random.choice(self.GLOW)
         for f in self.face:
             self.itemconfigure(f, fill=col)
@@ -620,6 +622,8 @@ class NightScene(tk.Canvas):
 
     # ---------------------------------------------------------------- loop
     def _tick(self):
+        if not self.winfo_exists():
+            return
         self.after(self.TICK, self._tick)
         if not self.winfo_ismapped() or not self.w or self.h < 60 * self.k:
             return
@@ -847,7 +851,27 @@ class App:
 
         self.zip_var = tk.BooleanVar(value=self.cfg.get("zip_folders", True))
         self.replace_var = tk.BooleanVar(value=self.cfg.get("replace_same_name", True))
+        self.job_meta = {}          # job id -> job dict (to rebuild cards after a theme change)
+        self.job_last = {}          # job id -> last status/progress shown
+        self.storage = None
+        self.update_info = None
+        root.report_callback_exception = self._report_exc
 
+        self._build_ui()
+        self.show_page("files")
+
+        threading.Thread(target=self._upload_worker, daemon=True).start()
+        threading.Thread(target=self._watch_worker, daemon=True).start()
+        root.after(100, self._pump)
+        root.protocol("WM_DELETE_WINDOW", self._on_close)
+        root.after(200, self._auto_login)
+        if self.cfg.get("auto_update_check", True):
+            root.after(1500, lambda: self._check_updates(silent=True))
+
+    def _build_ui(self):
+        """Create every widget from the current theme colours (also used for live theme switching)."""
+        root = self.root
+        root.configure(fg_color=C["bg"])
         self._style_tables()
         root.grid_columnconfigure(1, weight=1)
         root.grid_rowconfigure(0, weight=1)
@@ -868,18 +892,92 @@ class App:
         self._refresh_history()
         self._refresh_watches()
         self._refresh_uploads_empty()
-        self.show_page("files")
         if HAVE_DND:
             self._register_drop(self.main)
 
-        threading.Thread(target=self._upload_worker, daemon=True).start()
-        threading.Thread(target=self._watch_worker, daemon=True).start()
-        root.after(100, self._pump)
-        root.protocol("WM_DELETE_WINDOW", self._on_close)
-        root.after(200, self._auto_login)
-        self.update_info = None
-        if self.cfg.get("auto_update_check", True):
-            root.after(1500, lambda: self._check_updates(silent=True))
+    def _report_exc(self, exc, val, tb):
+        """Never let a stray Tk callback error pop up or crash the windowed exe; log it instead."""
+        try:
+            import traceback
+            os.makedirs(DATA_DIR, exist_ok=True)
+            with open(os.path.join(DATA_DIR, "error.log"), "a", encoding="utf-8") as f:
+                f.write(datetime.now().strftime("\n%Y-%m-%d %H:%M:%S\n"))
+                traceback.print_exception(exc, val, tb, file=f)
+        except Exception:
+            pass
+
+    def _show_account(self):
+        email = self.cfg.get("email", "")
+        short = email if len(email) <= 22 else email[:20] + "…"
+        self.acct_name.configure(text=short)
+        self.acct_status.configure(text="●  Connected", text_color=C["ok"])
+        self.avatar.configure(text=email[:1].upper())
+
+    def set_theme(self, name, reopen_settings=False):
+        """Switch theme instantly: rebuild all widgets in the new colours, keeping everything else."""
+        if name == THEME or name not in THEMES:
+            return
+        geo = None
+        if getattr(self, "_settings", None) is not None and self._settings.winfo_exists():
+            geo = "+%d+%d" % (self._settings.winfo_rootx(), self._settings.winfo_rooty())
+        page = self.page or "files"
+        note = self.note_entry.get() if hasattr(self, "note_entry") else ""
+        self.cfg["theme"] = name
+        _save_json(CONFIG_PATH, self.cfg)
+
+        global TITLE_FAMILY
+        apply_theme(name)
+        TITLE_FAMILY = FAMILY
+        try:
+            import tkinter.font as tkfont
+            if THEME in SCENES and "Chiller" in tkfont.families(self.root):
+                TITLE_FAMILY = "Chiller"
+        except Exception:
+            pass
+
+        if self._toast_after:
+            self.root.after_cancel(self._toast_after)
+        for w in self.root.winfo_children():
+            w.destroy()
+        self._toast = self._toast_after = None
+        self._hover_row = None
+        self._dragging = False
+        self._settings = self._set_stor = self._upd_dialog = None
+        self.job_cards, self.watch_cards, self.pages, self.page = {}, {}, {}, None
+        old_states = dict(self.job_state)
+
+        self._build_ui()
+
+        # put everything back the way it was
+        if self.api.logged_in:
+            self.login.place_forget()
+            self._show_account()
+            self._show_storage()
+            self._render_crumbs()
+            self._update_dz_sub()
+            self._render_files()
+        else:
+            self.show_login()
+        if note:
+            self.note_entry.insert(0, note)
+        for jid, job in self.job_meta.items():
+            if jid in old_states:
+                self._job_card(job)
+                last = dict(self.job_last.get(jid, {}))
+                last["state"] = old_states[jid]
+                self._update_job(jid, last)
+        self.job_state.update(old_states)
+        self._refresh_uploads_empty()
+        self._refresh_upload_counts()
+        if self.update_info:
+            self._set_upd_status("available", self.update_info)
+        elif self.cfg.get("last_update_check"):
+            self._set_upd_status("uptodate")
+        self.show_page(page)
+        if reopen_settings:
+            self._open_settings()
+            if geo and self._settings is not None:
+                self._settings.geometry(geo)
 
     # ---------------------------------------------------------- styling
     def _style_tables(self):
@@ -1050,20 +1148,10 @@ class App:
         for w in (self.stor_row, self.stor_lbl, self.stor_pct):
             w.bind("<Button-1>", lambda e: self._open_settings())
         self.stor_row.grid_remove()
-        self.storage = None
 
     def _choose_theme(self, name):
-        """Save the theme and restart into it. Returns False if the person cancelled."""
-        if name == THEME:
-            return True
-        busy = any(st in ("queued", "active") for st in self.job_state.values())
-        if busy and not self.confirm("Uploads still running",
-                                     "Switching theme restarts the app and stops unfinished uploads.",
-                                     "Restart anyway", danger=True):
-            return False
-        self.cfg["theme"] = name
-        _save_json(CONFIG_PATH, self.cfg)
-        self._restart()
+        """Kept for older callers: themes now switch instantly."""
+        self.set_theme(name)
         return True
 
     def _restart(self):
@@ -1249,6 +1337,7 @@ class App:
         self.job_state[job["id"]] = "queued"
 
     def _update_job(self, jid, kw):
+        self.job_last.setdefault(jid, {}).update({k: v for k, v in kw.items() if v is not None and k != "state"})
         c = self.job_cards.get(jid)
         if not c:
             return
@@ -1303,6 +1392,8 @@ class App:
         for jid in [j for j, s in self.job_state.items() if s in ("done", "failed", "unchanged")]:
             self.job_cards.pop(jid)["card"].destroy()
             self.job_state.pop(jid)
+            self.job_meta.pop(jid, None)
+            self.job_last.pop(jid, None)
         for i, c in enumerate(self.job_cards.values()):
             c["card"].grid(row=i + 1)
         self._refresh_upload_counts()
@@ -1499,10 +1590,7 @@ class App:
             _save_json(CONFIG_PATH, self.cfg)
             self.login.place_forget()
             self.l_pw.delete(0, "end")
-            short = email if len(email) <= 22 else email[:20] + "…"
-            self.acct_name.configure(text=short)
-            self.acct_status.configure(text="●  Connected", text_color=C["ok"])
-            self.avatar.configure(text=email[:1].upper())
+            self._show_account()
             self._refresh_storage()
             last = self.cfg.get("last_folder_stack")
             if last:
@@ -1567,6 +1655,8 @@ class App:
             self.root.after_cancel(self._toast_after)
 
         def slide(y, end, step, then=None):
+            if not t.winfo_exists():
+                return
             t.place(relx=1, rely=1, x=-24, y=y, anchor="se")
             t.lift()
             if (step < 0 and y > end) or (step > 0 and y < end):
@@ -1885,6 +1975,7 @@ class App:
             "force_quickkey": force_quickkey, "watch_id": watch_id, "sig": sig,
             "note": self.note_entry.get().strip() if note is None else note,
         }
+        self.job_meta[job["id"]] = job
         self._job_card(job)
         self._refresh_uploads_empty()
         self._refresh_upload_counts()
@@ -2282,16 +2373,15 @@ class App:
                 card.configure(border_color=C["accent"] if sel else C["border"])
                 name.configure(text=("✓  " if sel else "") + THEME_LABELS[key],
                                text_color=C["accent"] if sel else C["text"])
-            if picked["key"] != THEME:
-                apply_btn.configure(state="normal", text="Apply & restart", fg_color=C["accent"],
-                                    hover_color=C["accent_h"], text_color=C["on_accent"])
-            else:
-                apply_btn.configure(state="disabled", text="Current theme", fg_color=C["card2"],
-                                    text_color_disabled=C["muted"])
+            pass
 
         def pick(key):
+            if key == THEME:
+                return
             picked["key"] = key
             paint()
+            d.update_idletasks()
+            self.root.after(10, lambda: self.set_theme(key, reopen_settings=True))   # switch instantly
 
         for i, key in enumerate(THEME_LABELS):
             card = ctk.CTkFrame(grid, fg_color=C["card2"], corner_radius=12, border_width=2,
@@ -2303,11 +2393,13 @@ class App:
             name.pack(pady=(0, 8))
             for w in (card, pv, name):
                 w.bind("<Button-1>", lambda e, kk=key: pick(kk))
-                w.bind("<Double-1>", lambda e, kk=key: (pick(kk), apply()))
+                w.bind("<Enter>", lambda e, c=card, kk=key: kk != picked["key"] and c.configure(border_color=C["border_hi"]))
+                w.bind("<Leave>", lambda e, c=card, kk=key: kk != picked["key"] and c.configure(border_color=C["border"]))
             cards[key] = (card, name)
         ctk.CTkLabel(f, text="The spooky themes (Halloween, Blood Moon, Ghostly, Witch's Brew, Candy Corn) add a moving "
-                              "scene to the sidebar - click the bats, ghosts and candy. Arctic is a light theme.",
-                     font=F(11), text_color=C["muted"]).pack(anchor="w")
+                              "scene to the sidebar - click the bats, ghosts and candy. Arctic is a light theme. "
+                              "Click a theme to switch instantly.",
+                     font=F(11), text_color=C["muted"], wraplength=700, justify="left").pack(anchor="w")
 
         # ---- storage
         ctk.CTkLabel(f, text="MEDIAFIRE STORAGE", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", pady=(20, 6))
@@ -2351,14 +2443,7 @@ class App:
             self._set_stor = None
             d.destroy()
 
-        def apply():
-            if picked["key"] != THEME:
-                if self._choose_theme(picked["key"]) is False:
-                    return
-
-        apply_btn = Btn(btns, "Current theme", apply, "primary")
-        apply_btn.pack(side="right")
-        Btn(btns, "Close", close, "secondary").pack(side="right", padx=8)
+        Btn(btns, "Done", close, "primary").pack(side="right")
         Btn(btns, "Check for updates", lambda: (close(), self.show_page("updates"),
                                                 self._check_updates(silent=False)), "ghost").pack(side="left")
         d.protocol("WM_DELETE_WINDOW", close)
