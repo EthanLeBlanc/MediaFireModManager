@@ -751,14 +751,14 @@ class App:
 
     # ----------------------------------------------------------- sidebar
     def _build_sidebar(self):
-        sb = ctk.CTkFrame(self.root, fg_color=C["side"], corner_radius=0, width=232)
+        sb = ctk.CTkFrame(self.root, fg_color=C["side"], corner_radius=0, width=250)
         sb.grid(row=0, column=0, sticky="ns")
         sb.grid_propagate(False)
         sb.grid_columnconfigure(0, weight=1)
         sb.grid_rowconfigure(8, weight=1)
 
         brand = ctk.CTkFrame(sb, fg_color="transparent")
-        brand.grid(row=0, column=0, sticky="ew", padx=(18, 10), pady=(22, 26))
+        brand.grid(row=0, column=0, sticky="ew", padx=(18, 8), pady=(22, 26))
         brand.grid_columnconfigure(1, weight=1)
         if THEME == "halloween":
             PumpkinLogo(brand).grid(row=0, column=0, rowspan=2)
@@ -770,7 +770,7 @@ class App:
         self.gear = ctk.CTkButton(brand, text="⚙", width=32, height=32, corner_radius=9, fg_color="transparent",
                                   hover_color=C["hover"], text_color=C["muted"], font=F(17),
                                   command=self._open_settings)
-        self.gear.grid(row=0, column=2, rowspan=2, sticky="e")
+        self.gear.grid(row=0, column=2, rowspan=2, sticky="e", padx=(6, 0))
         ctk.CTkLabel(brand, text=f"for MediaFire  ·  v{VERSION}", font=F(11), text_color=C["muted"]).grid(
             row=1, column=1, sticky="w", padx=(10, 0))
 

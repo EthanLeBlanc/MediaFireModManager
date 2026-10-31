@@ -3,6 +3,10 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.4.1
+- Fixed the "Failed to remove temporary directory" warning after updating or switching themes
+- Wider sidebar so the app name, version and settings button fit
+
 ## 2.4.0
 - New name: Terps WorkFlow
 - See how much of your MediaFire storage you're using, at the bottom of the sidebar and in Settings

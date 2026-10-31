@@ -232,8 +232,22 @@ def clean_env():
     return env
 
 
+def _detach_dll_dir():
+    """The one-file bootloader calls SetDllDirectory(<_MEI temp folder>), and Windows passes
+    that to every process we start. The helper (cmd/ping) or the new exe can then load a DLL
+    from our temp folder and keep it locked, so the folder can't be removed when we quit
+    ("Failed to remove temporary directory"). Reset it before starting anything."""
+    if os.name == "nt" and is_frozen():
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetDllDirectoryW(None)
+        except Exception:
+            pass
+
+
 def launch_fresh(args, cwd=None):
     """Start a new, independent copy of the app."""
+    _detach_dll_dir()
     flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0   # DETACHED_PROCESS | NEW_PROCESS_GROUP
     subprocess.Popen(args, env=clean_env(), cwd=cwd, close_fds=True, creationflags=flags)
 
@@ -247,6 +261,7 @@ def install_and_restart(new_exe, target=None):
     with open(script, "w", encoding="mbcs" if os.name == "nt" else "utf-8") as f:
         f.write(SWAP_SCRIPT.format(new=new_exe, target=target))
     flags = 0x08000000 | 0x00000200          # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
+    _detach_dll_dir()
     subprocess.Popen(["cmd", "/c", script], creationflags=flags, close_fds=True, env=clean_env(),
                      cwd=os.path.dirname(target))
 
