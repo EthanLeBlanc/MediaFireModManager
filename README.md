@@ -1,6 +1,6 @@
-# MediaFire Mod Manager
+# Terps WorkFlow
 
-A Windows app for uploading mods to MediaFire. You drag and drop files, and updates to a mod keep the same download link. Mod folders are zipped automatically, there's a version history, and you can watch folders on your PC for changes. The app also updates itself from this repo's releases.
+Terps WorkFlow (formerly MediaFire Mod Manager) is a Windows app for uploading mods to MediaFire. You drag and drop files, and updates to a mod keep the same download link. Mod folders are zipped automatically, there's a version history, and you can watch folders on your PC for changes. The app also updates itself from this repo's releases.
 
 ![Files page](docs/files.png)
 
@@ -8,7 +8,7 @@ A Windows app for uploading mods to MediaFire. You drag and drop files, and upda
 
 ## Download
 
-Get **MediaFireModManager.exe** from the [latest release](../../releases/latest) and run it. You don't need to install anything. After that the app keeps itself up to date.
+Get **TerpsWorkFlow.exe** from the [latest release](../../releases/latest) and run it. You don't need to install anything. After that the app keeps itself up to date.
 
 ## What it does
 
@@ -17,7 +17,8 @@ Get **MediaFireModManager.exe** from the [latest release](../../releases/latest)
 - **Auto-zip.** Dropping `BPRacingTennis` uploads `BPRacingTennis.zip`, with the folder at the top level inside.
 - **History.** Every upload is logged with its time, your version note, its size and its link.
 - **Watched folders.** When a mod changes on your PC, the app tells you. Turn on Auto and it uploads by itself.
-- **Themes.** Use the switch at the bottom of the sidebar to pick Midnight or Halloween. The Halloween theme has a flickering jack-o'-lantern and a night-sky scene where bats dodge your cursor.
+- **Storage meter.** See how much of your MediaFire storage you're using at the bottom of the sidebar; click it for details.
+- **Themes.** Click the gear next to the app name to open Settings and pick a theme: Midnight, Halloween, Terps, Ocean, Sunset, Racing, Neon or Arctic (light). The Halloween theme has a flickering jack-o'-lantern and a night-sky scene where bats dodge your cursor.
 - **Self-updating.** When the app opens it checks for a newer release here, shows what's new and installs it.
 
 | Uploads | Watched | Update prompt |
@@ -51,7 +52,7 @@ Version numbers must go up. The app only offers a release that's newer than what
 
 ## Building it yourself
 
-You need Python 3.9 or newer from python.org; tick "Add python.exe to PATH" when you install it. Then double-click `build.bat`. It installs the requirements, asks for a version number and builds `dist\MediaFireModManager.exe`. Local builds are for testing. Releases come from GitHub as described above.
+You need Python 3.9 or newer from python.org; tick "Add python.exe to PATH" when you install it. Then double-click `build.bat`. It installs the requirements, asks for a version number and builds `dist\TerpsWorkFlow.exe`. Local builds are for testing. Releases come from GitHub as described above.
 
 To run from source without building:
 

@@ -3,6 +3,12 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.4.0
+- New name: Terps WorkFlow
+- See how much of your MediaFire storage you're using, at the bottom of the sidebar and in Settings
+- New Settings window (gear button next to the app name) with a theme gallery
+- Six new themes: Terps, Ocean, Sunset, Racing, Neon and Arctic (light)
+
 ## 2.3.3
 - Fixed the last step on the Updates page showing as an empty black bar on Windows
 

@@ -203,6 +203,15 @@ class MediaFireClient:
     def set_public(self, quickkey):
         return self.call("file/update", {"quick_key": quickkey, "privacy": "public"})
 
+    def get_storage(self):
+        """(used_bytes, limit_bytes) for the signed-in account."""
+        info = self.call("user/get_info").get("user_info", {}) or {}
+        used = info.get("used_storage_size")
+        limit = info.get("storage_limit") or info.get("base_storage")
+        if used in (None, "") or limit in (None, "", "0", 0):
+            raise MFError(-1, "MediaFire didn't report storage usage")
+        return int(used), int(limit)
+
     def find_file(self, folder_key, filename):
         _, files = self.list_folder(folder_key)
         for f in files:

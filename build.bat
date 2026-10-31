@@ -1,5 +1,5 @@
 @echo off
-REM Builds MediaFireModManager.exe into the "dist" folder.
+REM Builds TerpsWorkFlow.exe into the "dist" folder.
 REM Needs Python 3.9+ from python.org (tick "Add python.exe to PATH" when installing).
 cd /d "%~dp0"
 
@@ -13,7 +13,7 @@ if errorlevel 1 goto :fail
 
 echo Building exe...
 python -m PyInstaller --noconfirm --clean --onefile --windowed ^
-  --name MediaFireModManager ^
+  --name TerpsWorkFlow ^
   --collect-all tkinterdnd2 ^
   --collect-all customtkinter ^
   --hidden-import darkdetect ^
@@ -22,7 +22,7 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed ^
 if errorlevel 1 goto :fail
 
 echo.
-echo Done!  Your app is at:  %~dp0dist\MediaFireModManager.exe
+echo Done!  Your app is at:  %~dp0dist\TerpsWorkFlow.exe
 echo.
 echo This is a local test build. To release a version that every copy of the app
 echo picks up, push a version tag to GitHub (see README.md).

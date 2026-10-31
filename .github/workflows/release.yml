@@ -64,7 +64,7 @@ jobs:
         if: steps.ver.outputs.skip != 'true'
         run: >
           python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --name MediaFireModManager
+          --name TerpsWorkFlow
           --collect-all tkinterdnd2
           --collect-all customtkinter
           --hidden-import darkdetect
@@ -76,7 +76,7 @@ jobs:
         shell: pwsh
         run: |
           $out = Join-Path $PWD "ver.txt"
-          Start-Process -FilePath "dist\MediaFireModManager.exe" -ArgumentList "--write-version", "`"$out`"" -Wait
+          Start-Process -FilePath "dist\TerpsWorkFlow.exe" -ArgumentList "--write-version", "`"$out`"" -Wait
           $v = (Get-Content $out).Trim()
           if ($v -ne "${{ steps.ver.outputs.version }}") { throw "The exe reports version '$v'" }
           Write-Host "exe reports version $v"
@@ -85,7 +85,7 @@ jobs:
         if: steps.ver.outputs.skip != 'true'
         shell: bash
         run: |
-          (cd dist && sha256sum MediaFireModManager.exe | cut -d' ' -f1 > MediaFireModManager.exe.sha256)
+          (cd dist && sha256sum TerpsWorkFlow.exe | cut -d' ' -f1 > TerpsWorkFlow.exe.sha256)
           python release_notes.py ${{ steps.ver.outputs.version }} > notes.md
           cat notes.md
 
@@ -98,5 +98,5 @@ jobs:
           body_path: notes.md
           make_latest: true
           files: |
-            dist/MediaFireModManager.exe
-            dist/MediaFireModManager.exe.sha256
+            dist/TerpsWorkFlow.exe
+            dist/TerpsWorkFlow.exe.sha256

@@ -40,7 +40,7 @@ VERSION = app_version.VERSION
 UPDATE_LINK = getattr(app_version, "UPDATE_LINK", "")
 UPDATE_REPO = getattr(app_version, "UPDATE_REPO", "")
 
-APP_NAME = "MediaFire Mod Manager"
+APP_NAME = "Terps WorkFlow"
 KEYRING_SERVICE = "MediaFireModManager"
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~/.config"),
                         "MediaFireModManager")
@@ -74,7 +74,65 @@ THEMES = {
         "on_accent": "#1c0d03", "knob": "#f4ebdd", "sel_text": "#fff3e6",
     },
 }
-THEME_LABELS = {"midnight": "Midnight", "halloween": "Halloween"}
+THEMES.update({
+    "terps": {
+        "bg": "#0a110d", "side": "#0d1611", "card": "#111d16", "card2": "#17261d",
+        "hover": "#1e3025", "border": "#1f3127", "border_hi": "#2f4a3a",
+        "text": "#e9f2e6", "muted": "#93a998", "dim": "#5e7565",
+        "accent": "#e0b43a", "accent_h": "#c99d27", "accent_soft": "#2e2711", "select": "#2a3a1f",
+        "ok": "#7bd389", "ok_bg": "#163020", "warn": "#f0a35e", "warn_bg": "#382712",
+        "bad": "#ef6461", "bad_bg": "#381616", "info": "#7cc6d6", "info_bg": "#15303a",
+        "on_accent": "#1a1404", "knob": "#e9f2e6", "sel_text": "#ffffff",
+    },
+    "ocean": {
+        "bg": "#07111c", "side": "#0a1726", "card": "#0e1d2f", "card2": "#132639",
+        "hover": "#1a3149", "border": "#1a2f45", "border_hi": "#2a4a6b",
+        "text": "#e6f1fb", "muted": "#8aa3bd", "dim": "#56708a",
+        "accent": "#22c3e6", "accent_h": "#12a9cb", "accent_soft": "#0d2c3d", "select": "#0f3b55",
+        "ok": "#3ddc97", "ok_bg": "#0f2f25", "warn": "#ffc24b", "warn_bg": "#352a0f",
+        "bad": "#ff6b6b", "bad_bg": "#3a1717", "info": "#8fb8ff", "info_bg": "#16264a",
+        "on_accent": "#04161e", "knob": "#ffffff", "sel_text": "#ffffff",
+    },
+    "sunset": {
+        "bg": "#140a12", "side": "#1a0d18", "card": "#21111e", "card2": "#2a1626",
+        "hover": "#351c30", "border": "#33192f", "border_hi": "#552a4c",
+        "text": "#fbe9ee", "muted": "#c09aae", "dim": "#7f5d70",
+        "accent": "#ff6f61", "accent_h": "#ec5547", "accent_soft": "#3e1817", "select": "#4a1f2b",
+        "ok": "#7ee0a1", "ok_bg": "#163021", "warn": "#ffbe55", "warn_bg": "#3b2a10",
+        "bad": "#ff4f7b", "bad_bg": "#3d1222", "info": "#c49bff", "info_bg": "#2a1c45",
+        "on_accent": "#2a0a06", "knob": "#fff4f1", "sel_text": "#ffffff",
+    },
+    "racing": {
+        "bg": "#0b0b0c", "side": "#101011", "card": "#161618", "card2": "#1d1d20",
+        "hover": "#26262a", "border": "#29292d", "border_hi": "#44444a",
+        "text": "#f2f2f2", "muted": "#9a9aa2", "dim": "#606068",
+        "accent": "#e10600", "accent_h": "#c00500", "accent_soft": "#3a0d0c", "select": "#4a1210",
+        "ok": "#36d07a", "ok_bg": "#0f2f1d", "warn": "#ffcc00", "warn_bg": "#3a3008",
+        "bad": "#ff4d4d", "bad_bg": "#3a1414", "info": "#7aa7ff", "info_bg": "#16233f",
+        "on_accent": "#ffffff", "knob": "#ffffff", "sel_text": "#ffffff",
+    },
+    "neon": {
+        "bg": "#0a0714", "side": "#0e0a1c", "card": "#140f26", "card2": "#1b1531",
+        "hover": "#251d42", "border": "#261d45", "border_hi": "#41307a",
+        "text": "#f1ecff", "muted": "#a499c9", "dim": "#675c8c",
+        "accent": "#ff2bd6", "accent_h": "#e014bd", "accent_soft": "#3a0f36", "select": "#3d1450",
+        "ok": "#2bffc6", "ok_bg": "#0b3330", "warn": "#ffe14d", "warn_bg": "#3a330f",
+        "bad": "#ff4f6d", "bad_bg": "#3d1222", "info": "#2bd9ff", "info_bg": "#0d2d40",
+        "on_accent": "#1a0418", "knob": "#ffffff", "sel_text": "#ffffff",
+    },
+    "arctic": {
+        "light": True,
+        "bg": "#eef2f6", "side": "#e3e9f0", "card": "#ffffff", "card2": "#f3f6f9",
+        "hover": "#e6edf5", "border": "#d5dde7", "border_hi": "#b3c1d1",
+        "text": "#17202b", "muted": "#566475", "dim": "#8794a4",
+        "accent": "#2563eb", "accent_h": "#1d4fd0", "accent_soft": "#dbe7fd", "select": "#cfe0ff",
+        "ok": "#15965a", "ok_bg": "#dcf5e8", "warn": "#b7791f", "warn_bg": "#fbf0d9",
+        "bad": "#d33a3a", "bad_bg": "#fbe1e1", "info": "#4f46e5", "info_bg": "#e5e4fd",
+        "on_accent": "#ffffff", "knob": "#ffffff", "sel_text": "#0b1a33",
+    },
+})
+THEME_LABELS = {"midnight": "Midnight", "halloween": "Halloween", "terps": "Terps", "ocean": "Ocean",
+                "sunset": "Sunset", "racing": "Racing", "neon": "Neon", "arctic": "Arctic (light)"}
 THEME = "midnight"
 TITLE_FAMILY = FAMILY
 
@@ -82,7 +140,8 @@ TITLE_FAMILY = FAMILY
 def apply_theme(name):
     global THEME
     THEME = name if name in THEMES else "midnight"
-    C.update(THEMES[THEME])
+    C.update({k: v for k, v in THEMES[THEME].items() if k != "light"})
+    ctk.set_appearance_mode("light" if THEMES[THEME].get("light") else "dark")
 
 
 def _blend(c1, c2, t):
@@ -699,14 +758,19 @@ class App:
         sb.grid_rowconfigure(8, weight=1)
 
         brand = ctk.CTkFrame(sb, fg_color="transparent")
-        brand.grid(row=0, column=0, sticky="ew", padx=18, pady=(22, 26))
+        brand.grid(row=0, column=0, sticky="ew", padx=(18, 10), pady=(22, 26))
+        brand.grid_columnconfigure(1, weight=1)
         if THEME == "halloween":
             PumpkinLogo(brand).grid(row=0, column=0, rowspan=2)
         else:
             ctk.CTkLabel(brand, text="⇪", width=38, height=38, corner_radius=11, fg_color=C["accent"],
                          text_color=C["on_accent"], font=F(19, "bold")).grid(row=0, column=0, rowspan=2)
-        ctk.CTkLabel(brand, text="Mod Manager", font=F(15, "bold"), text_color=C["text"]).grid(
+        ctk.CTkLabel(brand, text=APP_NAME, font=F(15, "bold"), text_color=C["text"]).grid(
             row=0, column=1, sticky="w", padx=(10, 0))
+        self.gear = ctk.CTkButton(brand, text="⚙", width=32, height=32, corner_radius=9, fg_color="transparent",
+                                  hover_color=C["hover"], text_color=C["muted"], font=F(17),
+                                  command=self._open_settings)
+        self.gear.grid(row=0, column=2, rowspan=2, sticky="e")
         ctk.CTkLabel(brand, text=f"for MediaFire  ·  v{VERSION}", font=F(11), text_color=C["muted"]).grid(
             row=1, column=1, sticky="w", padx=(10, 0))
 
@@ -729,17 +793,7 @@ class App:
 
         if THEME == "halloween":
             NightScene(sb).grid(row=8, column=0, sticky="nsew", pady=(14, 0))
-        tsw = ctk.CTkFrame(sb, fg_color="transparent")
-        tsw.grid(row=9, column=0, sticky="ew", padx=12, pady=(12, 0))
-        ctk.CTkLabel(tsw, text="THEME", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", padx=12, pady=(0, 4))
-        self.theme_seg = ctk.CTkSegmentedButton(
-            tsw, values=list(THEME_LABELS.values()), command=self._choose_theme, height=30, corner_radius=9,
-            font=F(12), fg_color=C["card"], selected_color=C["accent"], selected_hover_color=C["accent_h"],
-            unselected_color=C["card"], unselected_hover_color=C["hover"], text_color=C["text"],
-            text_color_disabled=C["dim"])
-        self.theme_seg.set(THEME_LABELS[THEME])
-        self.theme_seg.pack(fill="x")
-        acct.grid(row=10, column=0, sticky="ew", padx=12, pady=14)
+        acct.grid(row=9, column=0, sticky="ew", padx=12, pady=14)
         acct.grid_columnconfigure(1, weight=1)
         self.avatar = ctk.CTkLabel(acct, text="?", width=34, height=34, corner_radius=17,
                                    fg_color=C["accent_soft"], text_color=C["accent"], font=F(14, "bold"))
@@ -754,19 +808,38 @@ class App:
                                         fg_color="transparent", hover_color=C["hover"],
                                         text_color=C["muted"], font=F(11), command=self._logout)
         self.logout_btn.grid(row=1, column=2, padx=(0, 8), pady=(0, 8))
+        # storage meter (filled in after sign-in)
+        self.stor_row = ctk.CTkFrame(acct, fg_color="transparent", cursor="hand2")
+        self.stor_row.grid(row=2, column=0, columnspan=3, sticky="ew", padx=12, pady=(0, 12))
+        self.stor_row.grid_columnconfigure(0, weight=1)
+        self.stor_lbl = ctk.CTkLabel(self.stor_row, text="Storage", font=F(11), text_color=C["muted"],
+                                     anchor="w", height=16)
+        self.stor_lbl.grid(row=0, column=0, sticky="w")
+        self.stor_pct = ctk.CTkLabel(self.stor_row, text="", font=F(11, "bold"), text_color=C["text"],
+                                     anchor="e", height=16)
+        self.stor_pct.grid(row=0, column=1, sticky="e")
+        self.stor_bar = ctk.CTkProgressBar(self.stor_row, height=6, corner_radius=3,
+                                           progress_color=C["accent"], fg_color=C["card2"])
+        self.stor_bar.set(0)
+        self.stor_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+        for w in (self.stor_row, self.stor_lbl, self.stor_pct):
+            w.bind("<Button-1>", lambda e: self._open_settings())
+        self.stor_row.grid_remove()
+        self.storage = None
 
-    def _choose_theme(self, label):
-        name = next(k for k, v in THEME_LABELS.items() if v == label)
+    def _choose_theme(self, name):
+        """Save the theme and restart into it. Returns False if the person cancelled."""
         if name == THEME:
-            return
+            return True
         busy = any(st in ("queued", "active") for st in self.job_state.values())
-        msg = "The app restarts to switch themes." + (" Unfinished uploads will stop." if busy else "")
-        if not self.confirm(f"Switch to {label}?", msg, "Restart now", danger=busy):
-            self.theme_seg.set(THEME_LABELS[THEME])
-            return
+        if busy and not self.confirm("Uploads still running",
+                                     "Switching theme restarts the app and stops unfinished uploads.",
+                                     "Restart anyway", danger=True):
+            return False
         self.cfg["theme"] = name
         _save_json(CONFIG_PATH, self.cfg)
         self._restart()
+        return True
 
     def _restart(self):
         import subprocess
@@ -1175,6 +1248,8 @@ class App:
         _save_json(CONFIG_PATH, self.cfg)
         self.acct_name.configure(text="Not signed in")
         self.acct_status.configure(text="○  Offline", text_color=C["muted"])
+        self.storage = None
+        self._show_storage()
         self.avatar.configure(text="?")
         self.files_tree.delete(*self.files_tree.get_children())
         self.l_pw.delete(0, "end")
@@ -1199,6 +1274,7 @@ class App:
             self.acct_name.configure(text=short)
             self.acct_status.configure(text="●  Connected", text_color=C["ok"])
             self.avatar.configure(text=email[:1].upper())
+            self._refresh_storage()
             last = self.cfg.get("last_folder_stack")
             if last:
                 self.folder_stack = [tuple(x) for x in last]
@@ -1248,7 +1324,7 @@ class App:
         icons = {"ok": "✓", "bad": "✕", "warn": "!", "info": "i"}
         if self._toast is None:
             t = ctk.CTkFrame(self.root, fg_color=C["card2"], corner_radius=12, border_width=1,
-                             border_color=C["border_hi"])
+                             border_color=C["border_hi"], bg_color=C["bg"])
             t.ic = ctk.CTkLabel(t, text="", width=24, height=24, corner_radius=12, font=F(12, "bold"))
             t.ic.pack(side="left", padx=(12, 10), pady=12)
             t.lb = ctk.CTkLabel(t, text="", font=F(12), text_color=C["text"], wraplength=360, justify="left")
@@ -1496,7 +1572,7 @@ class App:
                             "download it anymore.", "Delete", danger=True):
             return
         self._bg(lambda: [self.api.delete_file(q) for q in qks],
-                 lambda _: (self._load_folder(), self.toast("Moved to MediaFire trash")))
+                 lambda _: (self._load_folder(), self.toast("Moved to MediaFire trash"), self._refresh_storage()))
 
     def _update_selected(self):
         qks = self._selected_files()
@@ -1637,7 +1713,8 @@ class App:
                         label = "Done · link changed"
                     post(state="done", status=label, link=link if len(files) == 1 else None)
                     name = os.path.basename(job["path"])
-                    self.ui_q.put(("call", lambda _, n=name: self.toast(f"{n} uploaded", "ok"), None))
+                    self.ui_q.put(("call", lambda _, n=name: (self.toast(f"{n} uploaded", "ok"),
+                                                              self._refresh_storage()), None))
                 if job["watch_id"]:
                     self.ui_q.put(("watch", "uploaded", job["watch_id"], job.get("sig")))
                 if self._cur_key() in {f[1] for f in files}:
@@ -1884,6 +1961,175 @@ class App:
             self.watch_state.pop(wid, None)
             _save_json(CONFIG_PATH, self.cfg)
             self._refresh_watches()
+
+    # ============================================================== storage
+    def _refresh_storage(self):
+        if not self.api.logged_in:
+            return
+
+        def done(res):
+            self.storage = res
+            self._show_storage()
+
+        self._bg(self.api.get_storage, done, lambda e: None)
+
+    def _storage_text(self):
+        used, total = self.storage
+        frac = used / total if total else 0
+        kind = "bad" if frac >= 0.95 else "warn" if frac >= 0.8 else "accent"
+        return used, total, frac, kind
+
+    def _show_storage(self):
+        if not self.storage:
+            self.stor_row.grid_remove()
+            return
+        used, total, frac, kind = self._storage_text()
+        self.stor_lbl.configure(text=f"{human_size(used)} of {human_size(total)}")
+        self.stor_pct.configure(text=f"{frac * 100:.0f}%", text_color=C[kind] if kind != "accent" else C["text"])
+        self.stor_bar.configure(progress_color=C[kind])
+        self.stor_bar.set(min(frac, 1))
+        self.stor_row.grid()
+        if getattr(self, "_set_stor", None):
+            self._set_stor()
+
+    # ============================================================= settings
+    def _theme_preview(self, parent, key, w=132, h=78):
+        t = dict(THEMES["midnight"])
+        t.update(THEMES[key])
+        k = _scale(parent)
+        cv = tk.Canvas(parent, width=int(w * k), height=int(h * k), bg=t["bg"], highlightthickness=0, bd=0,
+                       cursor="hand2")
+        R = lambda x0, y0, x1, y1, col: cv.create_rectangle(x0 * k, y0 * k, x1 * k, y1 * k, fill=col, outline="")
+        R(0, 0, 34, h, t["side"])
+        R(6, 8, 14, 16, t["accent"])
+        R(17, 10, 30, 13, t["text"])
+        for i in range(4):
+            R(5, 24 + i * 9, 29, 30 + i * 9, t["card2"] if i == 0 else t["side"])
+            R(9, 26 + i * 9, 22, 28 + i * 9, t["text"] if i == 0 else t["muted"])
+        R(5, 24, 6.5, 30, t["accent"])
+        R(42, 8, 72, 13, t["accent"] if key == "halloween" else t["text"])
+        R(42, 16, 64, 18, t["muted"])
+        R(42, 24, w - 8, 44, t["card"])
+        R(46, 30, 60, 38, t["accent"])
+        R(64, 31, 92, 33, t["text"])
+        R(64, 36, 84, 38, t["muted"])
+        R(42, 50, w - 8, h - 8, t["card"])
+        for i in range(2):
+            R(46, 55 + i * 7, 80, 58 + i * 7, t["text"])
+            R(98, 55 + i * 7, 114, 58 + i * 7, t["muted"])
+        R(46, 55, 74, 59, t["text"])
+        if key == "halloween":
+            cv.create_oval(22 * k, 58 * k, 30 * k, 66 * k, fill="#f4e6b4", outline="")
+            cv.create_oval(9 * k, 66 * k, 15 * k, 72 * k, fill="#ff7a1a", outline="")
+        return cv
+
+    def _open_settings(self):
+        if getattr(self, "_settings", None) is not None and self._settings.winfo_exists():
+            self._settings.lift()
+            return
+        d, f = self._dialog("Settings")
+        self._settings = d
+        top = ctk.CTkFrame(f, fg_color="transparent")
+        top.pack(fill="x")
+        ctk.CTkLabel(top, text="Settings", font=F(20, "bold"), text_color=C["text"]).pack(side="left")
+        ctk.CTkLabel(top, text=f"{APP_NAME}  ·  v{VERSION}", font=F(12), text_color=C["muted"]).pack(
+            side="left", padx=12, pady=(6, 0))
+
+        # ---- theme gallery
+        ctk.CTkLabel(f, text="THEME", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", pady=(18, 6))
+        grid = ctk.CTkFrame(f, fg_color="transparent")
+        grid.pack(fill="x")
+        picked = {"key": THEME}
+        cards = {}
+
+        def paint():
+            for key, (card, name) in cards.items():
+                sel = key == picked["key"]
+                card.configure(border_color=C["accent"] if sel else C["border"])
+                name.configure(text=("✓  " if sel else "") + THEME_LABELS[key],
+                               text_color=C["accent"] if sel else C["text"])
+            if picked["key"] != THEME:
+                apply_btn.configure(state="normal", text="Apply & restart", fg_color=C["accent"],
+                                    hover_color=C["accent_h"], text_color=C["on_accent"])
+            else:
+                apply_btn.configure(state="disabled", text="Current theme", fg_color=C["card2"],
+                                    text_color_disabled=C["muted"])
+
+        def pick(key):
+            picked["key"] = key
+            paint()
+
+        for i, key in enumerate(THEME_LABELS):
+            card = ctk.CTkFrame(grid, fg_color=C["card2"], corner_radius=12, border_width=2,
+                                border_color=C["border"], cursor="hand2")
+            card.grid(row=i // 4, column=i % 4, padx=(0 if i % 4 == 0 else 10, 0), pady=(0, 10))
+            pv = self._theme_preview(card, key)
+            pv.pack(padx=8, pady=(8, 4))
+            name = ctk.CTkLabel(card, text=THEME_LABELS[key], font=F(12, "bold"), text_color=C["text"], height=20)
+            name.pack(pady=(0, 8))
+            for w in (card, pv, name):
+                w.bind("<Button-1>", lambda e, kk=key: pick(kk))
+                w.bind("<Double-1>", lambda e, kk=key: (pick(kk), apply()))
+            cards[key] = (card, name)
+        ctk.CTkLabel(f, text="Halloween adds a moving night scene with bats you can chase. Arctic is a light theme.",
+                     font=F(11), text_color=C["muted"]).pack(anchor="w")
+
+        # ---- storage
+        ctk.CTkLabel(f, text="MEDIAFIRE STORAGE", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", pady=(20, 6))
+        sc = ctk.CTkFrame(f, fg_color=C["card2"], corner_radius=12, border_width=1, border_color=C["border"])
+        sc.pack(fill="x")
+        sc.grid_columnconfigure(0, weight=1)
+        s_big = ctk.CTkLabel(sc, text="", font=F(16, "bold"), text_color=C["text"], anchor="w")
+        s_big.grid(row=0, column=0, sticky="w", padx=16, pady=(14, 0))
+        s_small = ctk.CTkLabel(sc, text="", font=F(12), text_color=C["muted"], anchor="w")
+        s_small.grid(row=1, column=0, sticky="w", padx=16)
+        Btn(sc, "Refresh", self._refresh_storage, "secondary", width=80, height=30).grid(
+            row=0, column=1, rowspan=2, padx=16, pady=(14, 0))
+        s_bar = ctk.CTkProgressBar(sc, height=10, corner_radius=5, progress_color=C["accent"], fg_color=C["bg"])
+        s_bar.set(0)
+        s_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(10, 16))
+
+        def set_stor():
+            if not d.winfo_exists():
+                self._set_stor = None
+                return
+            if not self.storage:
+                s_big.configure(text="Sign in to see your storage" if not self.api.logged_in else "Loading…")
+                s_small.configure(text="")
+                return
+            used, total, frac, kind = self._storage_text()
+            s_big.configure(text=f"{human_size(used)} used of {human_size(total)}")
+            s_small.configure(text=f"{frac * 100:.1f}% full  ·  {human_size(max(total - used, 0))} free")
+            s_bar.configure(progress_color=C[kind])
+            s_bar.set(min(frac, 1))
+
+        self._set_stor = set_stor
+        set_stor()
+        self._refresh_storage()
+
+        # ---- buttons
+        btns = ctk.CTkFrame(f, fg_color="transparent")
+        btns.pack(fill="x", pady=(20, 0))
+
+        def close():
+            self._settings = None
+            self._set_stor = None
+            d.destroy()
+
+        def apply():
+            if picked["key"] != THEME:
+                if self._choose_theme(picked["key"]) is False:
+                    return
+
+        apply_btn = Btn(btns, "Current theme", apply, "primary")
+        apply_btn.pack(side="right")
+        Btn(btns, "Close", close, "secondary").pack(side="right", padx=8)
+        Btn(btns, "Check for updates", lambda: (close(), self.show_page("updates"),
+                                                self._check_updates(silent=False)), "ghost").pack(side="left")
+        d.protocol("WM_DELETE_WINDOW", close)
+        d.bind("<Escape>", lambda e: close())
+        paint()
+        self._place_dialog(d)
 
     # ============================================================== updates
     def _card(self, parent, row, pady=(0, 12)):
@@ -2186,7 +2432,7 @@ class App:
             return
         start = os.path.dirname(sys.executable) if updater.is_frozen() else \
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist")
-        exe = filedialog.askopenfilename(title="Pick the new MediaFireModManager.exe",
+        exe = filedialog.askopenfilename(title="Pick the new TerpsWorkFlow.exe",
                                          initialdir=start if os.path.isdir(start) else None,
                                          filetypes=[("Programs", "*.exe")])
         if not exe:
@@ -2294,8 +2540,8 @@ class App:
                 Btn(btns, "Done", d.destroy, "secondary").pack(side="right")
                 if updater.is_frozen() and updater.is_newer(info["version"], VERSION):
                     def restart_now():
-                        new = os.path.join(tempfile.gettempdir(), "MediaFireModManager_update",
-                                           "MediaFireModManager_new.exe")
+                        new = os.path.join(tempfile.gettempdir(), "TerpsWorkFlow_update",
+                                           "TerpsWorkFlow_new.exe")
                         os.makedirs(os.path.dirname(new), exist_ok=True)
                         shutil.copy2(exe, new)
                         updater.install_and_restart(new)

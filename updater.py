@@ -92,7 +92,8 @@ def _open(url, http, stream=False):
 
 
 # ------------------------------------------------------------ check
-EXE_NAME = "MediaFireModManager.exe"
+EXE_NAMES = ("TerpsWorkFlow.exe", "MediaFireModManager.exe")   # new name first, old name still works
+EXE_NAME = EXE_NAMES[0]
 GITHUB_API = "https://api.github.com"
 
 
@@ -114,16 +115,17 @@ def fetch_github_info(repo, http=None):
     r.raise_for_status()
     rel = r.json()
     assets = {a.get("name"): a for a in rel.get("assets", [])}
-    exe = assets.get(EXE_NAME) or next((a for n, a in assets.items() if str(n).lower().endswith(".exe")), None)
+    exe = next((assets[n] for n in EXE_NAMES if n in assets), None) or \
+        next((a for n, a in assets.items() if str(n).lower().endswith(".exe")), None)
     if not exe:
         raise UpdateError("The newest GitHub release has no exe yet (it may still be building).")
     sha = None
     digest = exe.get("digest") or ""
     if digest.startswith("sha256:"):
         sha = digest.split(":", 1)[1]
-    elif EXE_NAME + ".sha256" in assets:
+    elif exe.get("name", "") + ".sha256" in assets:
         try:
-            t = http.get(assets[EXE_NAME + ".sha256"]["browser_download_url"],
+            t = http.get(assets[exe["name"] + ".sha256"]["browser_download_url"],
                          headers={"User-Agent": UA}, timeout=20)
             t.raise_for_status()
             sha = t.text.split()[0].strip()
@@ -155,9 +157,9 @@ def fetch_info(update_link, http=None):
 def download_exe(info, dest_dir=None, progress=None, http=None):
     """Download the new exe, verify size + SHA-256. Returns its path."""
     http = http or requests.Session()
-    dest_dir = dest_dir or os.path.join(tempfile.gettempdir(), "MediaFireModManager_update")
+    dest_dir = dest_dir or os.path.join(tempfile.gettempdir(), "TerpsWorkFlow_update")
     os.makedirs(dest_dir, exist_ok=True)
-    dest = os.path.join(dest_dir, "MediaFireModManager_new.exe")
+    dest = os.path.join(dest_dir, "TerpsWorkFlow_new.exe")
     r = None
     if info.get("asset_api"):          # GitHub: the API download route works on every network
         try:
