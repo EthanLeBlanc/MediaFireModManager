@@ -3,6 +3,11 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.8.0
+- Settings is now a page inside the app (sidebar > Settings, or the gear) instead of a pop-up window
+- Smaller theme tiles - click one to switch instantly
+- Storage details and the version / update check live on the same page
+
 ## 2.7.0
 - Themes switch instantly - click one in Settings and the whole app changes right away, no restart
 - Uploads keep running, and your folder, notes, storage and sign-in stay put while you switch

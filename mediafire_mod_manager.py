@@ -886,6 +886,7 @@ class App:
         self._build_history_page()
         self._build_watch_page()
         self._build_updates_page()
+        self._build_settings_page()
         self._build_login()
         self._make_menus()
 
@@ -974,10 +975,6 @@ class App:
         elif self.cfg.get("last_update_check"):
             self._set_upd_status("uptodate")
         self.show_page(page)
-        if reopen_settings:
-            self._open_settings()
-            if geo and self._settings is not None:
-                self._settings.geometry(geo)
 
     # ---------------------------------------------------------- styling
     def _style_tables(self):
@@ -1073,7 +1070,7 @@ class App:
         sb.grid(row=0, column=0, sticky="ns")
         sb.grid_propagate(False)
         sb.grid_columnconfigure(0, weight=1)
-        sb.grid_rowconfigure(8, weight=1)
+        sb.grid_rowconfigure(9, weight=1)
 
         brand = ctk.CTkFrame(sb, fg_color="transparent")
         brand.grid(row=0, column=0, sticky="ew", padx=(18, 8), pady=(22, 26))
@@ -1113,10 +1110,13 @@ class App:
         n = NavItem(sb, "⟳", "Updates", lambda: self.show_page("updates"))
         n.grid(row=7, column=0, sticky="ew", padx=12, pady=2)
         self.nav["updates"] = n
+        n = NavItem(sb, "⚙", "Settings", lambda: self.show_page("settings"))
+        n.grid(row=8, column=0, sticky="ew", padx=12, pady=2)
+        self.nav["settings"] = n
 
         if THEME in SCENES:
-            NightScene(sb).grid(row=8, column=0, sticky="nsew", pady=(14, 0))
-        acct.grid(row=9, column=0, sticky="ew", padx=12, pady=14)
+            NightScene(sb).grid(row=9, column=0, sticky="nsew", pady=(14, 0))
+        acct.grid(row=10, column=0, sticky="ew", padx=12, pady=14)
         acct.grid_columnconfigure(1, weight=1)
         self.avatar = ctk.CTkLabel(acct, text="?", width=34, height=34, corner_radius=17,
                                    fg_color=C["accent_soft"], text_color=C["accent"], font=F(14, "bold"))
@@ -2314,115 +2314,95 @@ class App:
             self._set_stor()
 
     # ============================================================= settings
-    def _theme_preview(self, parent, key, w=132, h=78):
+    def _theme_swatch(self, parent, key, bg, w=64, h=40):
+        """Tiny picture of a theme: sidebar, accent and a content card."""
         t = dict(THEMES["midnight"])
         t.update(THEMES[key])
         k = _scale(parent)
-        cv = tk.Canvas(parent, width=int(w * k), height=int(h * k), bg=t["bg"], highlightthickness=0, bd=0,
+        cv = tk.Canvas(parent, width=int(w * k), height=int(h * k), bg=bg, highlightthickness=0, bd=0,
                        cursor="hand2")
         R = lambda x0, y0, x1, y1, col: cv.create_rectangle(x0 * k, y0 * k, x1 * k, y1 * k, fill=col, outline="")
-        R(0, 0, 34, h, t["side"])
-        R(6, 8, 14, 16, t["accent"])
-        R(17, 10, 30, 13, t["text"])
-        for i in range(4):
-            R(5, 24 + i * 9, 29, 30 + i * 9, t["card2"] if i == 0 else t["side"])
-            R(9, 26 + i * 9, 22, 28 + i * 9, t["text"] if i == 0 else t["muted"])
-        R(5, 24, 6.5, 30, t["accent"])
-        R(42, 8, 72, 13, t["accent"] if key in SCENES else t["text"])
-        R(42, 16, 64, 18, t["muted"])
-        R(42, 24, w - 8, 44, t["card"])
-        R(46, 30, 60, 38, t["accent"])
-        R(64, 31, 92, 33, t["text"])
-        R(64, 36, 84, 38, t["muted"])
-        R(42, 50, w - 8, h - 8, t["card"])
-        for i in range(2):
-            R(46, 55 + i * 7, 80, 58 + i * 7, t["text"])
-            R(w - 28, 55 + i * 7, w - 14, 58 + i * 7, t["muted"])
-        R(46, 55, 74, 59, t["text"])
+        R(0, 0, w, h, t["bg"])
+        R(0, 0, 16, h, t["side"])
+        R(3, 5, 8, 10, t["accent"])
+        for i in range(3):
+            R(3, 15 + i * 6, 13, 17 + i * 6, t["muted"] if i else t["text"])
+        R(21, 5, 40, 8, t["text"])
+        R(21, 13, w - 5, h - 5, t["card"])
+        R(25, 17, 33, 23, t["accent"])
+        R(36, 18, w - 9, 20, t["text"])
+        R(25, 27, w - 12, 29, t["muted"])
         if key in SCENES:
             sc = SCENES[key]
-            R(0, 52, 34, h, _blend(t["side"], sc["haze"], 0.7))
-            cv.create_oval(21 * k, 56 * k, 30 * k, 65 * k, fill=sc["moon"], outline="")
-            R(0, h - 6, 34, h, sc["ground"])
-            dot = {"pumpkin": "#ff7a1a", "cauldron": "#8be36b", "fog": "#9fd8c8"}[sc["item"]]
-            cv.create_oval(8 * k, (h - 10) * k, 14 * k, (h - 4) * k, fill=dot, outline="")
+            R(0, h - 12, 16, h, _blend(t["side"], sc["haze"], 0.7))
+            cv.create_oval(8 * k, (h - 11) * k, 13 * k, (h - 6) * k, fill=sc["moon"], outline="")
         return cv
 
-    def _open_settings(self):
-        if getattr(self, "_settings", None) is not None and self._settings.winfo_exists():
-            self._settings.lift()
-            return
-        d, f = self._dialog("Settings")
-        self._settings = d
-        top = ctk.CTkFrame(f, fg_color="transparent")
-        top.pack(fill="x")
-        ctk.CTkLabel(top, text="Settings", font=F(20, "bold"), text_color=C["text"]).pack(side="left")
-        ctk.CTkLabel(top, text=f"{APP_NAME}  ·  v{VERSION}", font=F(12), text_color=C["muted"]).pack(
-            side="left", padx=12, pady=(6, 0))
+    def _build_settings_page(self):
+        pg = self._new_page("settings")
+        pg.grid_rowconfigure(7, weight=1)
+        _, act = self._header(pg, "Settings", "Pick a theme, check your storage")
+        act.grid_remove()                    # no header buttons here (an empty frame would stretch the header)
 
-        # ---- theme gallery
-        ctk.CTkLabel(f, text="THEME", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", pady=(18, 6))
-        grid = ctk.CTkFrame(f, fg_color="transparent")
-        grid.pack(fill="x")
-        picked = {"key": THEME}
-        cards = {}
-
-        def paint():
-            for key, (card, name) in cards.items():
-                sel = key == picked["key"]
-                card.configure(border_color=C["accent"] if sel else C["border"])
-                name.configure(text=("✓  " if sel else "") + THEME_LABELS[key],
-                               text_color=C["accent"] if sel else C["text"])
-            pass
-
-        def pick(key):
-            if key == THEME:
-                return
-            picked["key"] = key
-            paint()
-            d.update_idletasks()
-            self.root.after(10, lambda: self.set_theme(key, reopen_settings=True))   # switch instantly
-
+        # ---- themes: small tiles, click to switch instantly
+        ctk.CTkLabel(pg, text="THEME", font=F(10, "bold"), text_color=C["dim"]).grid(
+            row=1, column=0, sticky="w", pady=(0, 6))
+        grid = ctk.CTkFrame(pg, fg_color="transparent")
+        grid.grid(row=2, column=0, sticky="w")
+        cols = 4
         for i, key in enumerate(THEME_LABELS):
-            card = ctk.CTkFrame(grid, fg_color=C["card2"], corner_radius=12, border_width=2,
-                                border_color=C["border"], cursor="hand2")
-            card.grid(row=i // 6, column=i % 6, padx=(0 if i % 6 == 0 else 8, 0), pady=(0, 8))
-            pv = self._theme_preview(card, key, w=116, h=70)
-            pv.pack(padx=8, pady=(8, 4))
-            name = ctk.CTkLabel(card, text=THEME_LABELS[key], font=F(12, "bold"), text_color=C["text"], height=20)
-            name.pack(pady=(0, 8))
-            for w in (card, pv, name):
-                w.bind("<Button-1>", lambda e, kk=key: pick(kk))
-                w.bind("<Enter>", lambda e, c=card, kk=key: kk != picked["key"] and c.configure(border_color=C["border_hi"]))
-                w.bind("<Leave>", lambda e, c=card, kk=key: kk != picked["key"] and c.configure(border_color=C["border"]))
-            cards[key] = (card, name)
-        ctk.CTkLabel(f, text="The spooky themes (Halloween, Blood Moon, Ghostly, Witch's Brew, Candy Corn) add a moving "
-                              "scene to the sidebar - click the bats, ghosts and candy. Arctic is a light theme. "
-                              "Click a theme to switch instantly.",
-                     font=F(11), text_color=C["muted"], wraplength=700, justify="left").pack(anchor="w")
+            sel = key == THEME
+            tile = ctk.CTkFrame(grid, fg_color=C["card2"] if sel else C["card"], corner_radius=10,
+                                border_width=2, border_color=C["accent"] if sel else C["border"],
+                                width=196, height=58, cursor="hand2")
+            tile.grid(row=i // cols, column=i % cols, padx=(0, 10), pady=(0, 10))
+            tile.grid_propagate(False)
+            tile.grid_columnconfigure(1, weight=1)
+            tile.grid_rowconfigure(0, weight=1)
+            sw = self._theme_swatch(tile, key, C["card2"] if sel else C["card"])
+            sw.grid(row=0, column=0, padx=(9, 10))
+            name = ctk.CTkLabel(tile, text=THEME_LABELS[key], font=F(12, "bold" if sel else "normal"),
+                                text_color=C["accent"] if sel else C["text"], anchor="w")
+            name.grid(row=0, column=1, sticky="w")
+            mark = ctk.CTkLabel(tile, text="✓" if sel else "", font=F(13, "bold"), text_color=C["accent"],
+                                width=18)
+            mark.grid(row=0, column=2, padx=(0, 10))
+            for w in (tile, sw, name, mark):
+                w.bind("<Button-1>", lambda e, kk=key: self.root.after(10, lambda: self.set_theme(kk)))
+                if not sel:
+                    w.bind("<Enter>", lambda e, t=tile: t.configure(border_color=C["border_hi"]))
+                    w.bind("<Leave>", lambda e, t=tile: t.configure(border_color=C["border"]))
+        ctk.CTkLabel(pg, text="Click a theme to switch instantly. The spooky ones (Halloween, Blood Moon, Ghostly, "
+                              "Witch's Brew, Candy Corn) add a moving scene to the sidebar.",
+                     font=F(11), text_color=C["muted"], anchor="w", justify="left", wraplength=820).grid(
+            row=3, column=0, sticky="w", pady=(0, 20))
 
         # ---- storage
-        ctk.CTkLabel(f, text="MEDIAFIRE STORAGE", font=F(10, "bold"), text_color=C["dim"]).pack(anchor="w", pady=(20, 6))
-        sc = ctk.CTkFrame(f, fg_color=C["card2"], corner_radius=12, border_width=1, border_color=C["border"])
-        sc.pack(fill="x")
+        box = ctk.CTkFrame(pg, fg_color="transparent")
+        box.grid(row=4, column=0, sticky="ew")
+        box.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(box, text="MEDIAFIRE STORAGE", font=F(10, "bold"), text_color=C["dim"]).grid(
+            row=0, column=0, sticky="w", pady=(0, 6))
+        sc = ctk.CTkFrame(box, fg_color=C["card"], corner_radius=12, border_width=1, border_color=C["border"])
+        sc.grid(row=1, column=0, sticky="ew")
         sc.grid_columnconfigure(0, weight=1)
-        s_big = ctk.CTkLabel(sc, text="", font=F(16, "bold"), text_color=C["text"], anchor="w")
+        s_big = ctk.CTkLabel(sc, text="", font=F(15, "bold"), text_color=C["text"], anchor="w")
         s_big.grid(row=0, column=0, sticky="w", padx=16, pady=(14, 0))
         s_small = ctk.CTkLabel(sc, text="", font=F(12), text_color=C["muted"], anchor="w")
         s_small.grid(row=1, column=0, sticky="w", padx=16)
         Btn(sc, "Refresh", self._refresh_storage, "secondary", width=80, height=30).grid(
             row=0, column=1, rowspan=2, padx=16, pady=(14, 0))
-        s_bar = ctk.CTkProgressBar(sc, height=10, corner_radius=5, progress_color=C["accent"], fg_color=C["bg"])
+        s_bar = ctk.CTkProgressBar(sc, height=8, corner_radius=4, progress_color=C["accent"], fg_color=C["card2"])
         s_bar.set(0)
         s_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(10, 16))
 
         def set_stor():
-            if not d.winfo_exists():
-                self._set_stor = None
+            if not sc.winfo_exists():
                 return
             if not self.storage:
                 s_big.configure(text="Sign in to see your storage" if not self.api.logged_in else "Loading…")
                 s_small.configure(text="")
+                s_bar.set(0)
                 return
             used, total, frac, kind = self._storage_text()
             s_big.configure(text=f"{human_size(used)} used of {human_size(total)}")
@@ -2432,24 +2412,19 @@ class App:
 
         self._set_stor = set_stor
         set_stor()
+
+        # ---- about
+        ab = ctk.CTkFrame(pg, fg_color=C["card"], corner_radius=12, border_width=1, border_color=C["border"])
+        ab.grid(row=6, column=0, sticky="ew", pady=(16, 0))
+        ab.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(ab, text=f"{APP_NAME}  ·  version {VERSION}", font=F(13, "bold"), text_color=C["text"],
+                     anchor="w").grid(row=0, column=0, sticky="w", padx=16, pady=14)
+        Btn(ab, "Check for updates", lambda: (self.show_page("updates"), self._check_updates(silent=False)),
+            "secondary").grid(row=0, column=1, padx=16)
+
+    def _open_settings(self):
+        self.show_page("settings")
         self._refresh_storage()
-
-        # ---- buttons
-        btns = ctk.CTkFrame(f, fg_color="transparent")
-        btns.pack(fill="x", pady=(20, 0))
-
-        def close():
-            self._settings = None
-            self._set_stor = None
-            d.destroy()
-
-        Btn(btns, "Done", close, "primary").pack(side="right")
-        Btn(btns, "Check for updates", lambda: (close(), self.show_page("updates"),
-                                                self._check_updates(silent=False)), "ghost").pack(side="left")
-        d.protocol("WM_DELETE_WINDOW", close)
-        d.bind("<Escape>", lambda e: close())
-        paint()
-        self._place_dialog(d)
 
     # ============================================================== updates
     def _card(self, parent, row, pady=(0, 12)):
