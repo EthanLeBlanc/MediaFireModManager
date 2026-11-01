@@ -19,7 +19,7 @@ Get **TerpsWorkFlow.exe** from the [latest release](../../releases/latest) and r
 - **Watched folders.** When a mod changes on your PC, the app tells you. Turn on Auto and it uploads by itself.
 - **Storage meter.** See how much of your MediaFire storage you're using at the bottom of the sidebar; click it for details.
 - **Themes.** Open **Settings** in the sidebar (or click the gear) and click any of the 12 themes to switch instantly. The spooky ones (Halloween, Blood Moon, Ghostly, Witch's Brew, Candy Corn) add an animated night scene to the sidebar with bats, ghosts, a bubbling cauldron or falling candy corn. Arctic is a light theme.
-- **PSD Builder.** Point it at a Substance Painter export (MXB preset) and the app makes one PSD per texture set, named after its `.tga` files, no Photoshop needed: the locked Hide me layer, an `n s r` folder (with the green-flipped Bikes normal) and a Base folder with the shading maps at your blend modes and opacities (change them in Shading settings). It can also write the game `.tga` files, or export them from your finished PSD in Photoshop once you've done the colours.
+- **PSD Builder.** Point it at a Substance Painter export (MXB preset) and the app makes one PSD per texture set, named after its `.tga` files, no Photoshop needed: the locked Hide me layer, rough, spec and Norm folders (with the green-flipped Bikes normal) and a Base folder with the shading maps at your blend modes and opacities (change them in Shading settings). It can also write the game `.tga` files, or export them from your finished PSD in Photoshop once you've done the colours.
 - **Self-updating.** When the app opens it checks for a newer release here, shows what's new and installs it.
 
 | Uploads | Watched | Update prompt |

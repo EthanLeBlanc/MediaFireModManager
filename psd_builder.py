@@ -7,7 +7,9 @@ Painter (with the "MXB" preset) exports, per texture set X:
 
 The app writes one PSD per texture set itself (no Photoshop needed), named after the set (X.psd):
     Hide me                      (locked "thank you" overlay)
-    n s r    -> X_r, X_s, Bikes (green flipped), X_n
+    rough    -> X_r
+    spec     -> X_s
+    Norm     -> Bikes (green flipped), X_n
     Base     -> Shading (X_ao, X_2D, X_curv, X_mask - per the shading preset), X
 Colour fills are left for you to add.
 
@@ -394,7 +396,6 @@ def _blend(base, top, mode, opacity):
     return Image.blend(base, mixed, max(0, min(100, opacity)) / 100.0)
 
 
-NSR_GROUP = "n s r"
 
 
 def guess_preset(name):
@@ -407,7 +408,9 @@ def build_set_psd(s, out_psd, preset="Chain", shading=None, export_dir=None, hid
                   progress=lambda t: None):
     """Make one PSD for one Painter texture set. Layout, top to bottom:
         Hide me (locked)
-        n s r      -> X_r, X_s, Bikes (green flipped), X_n
+        rough      -> X_r
+        spec       -> X_s
+        Norm       -> Bikes (green flipped), X_n
         Base       -> Shading (X_ao, X_2D, X_curv, X_mask - per the preset), X
     Returns (warnings, exported files)."""
     warnings, exported = [], []
@@ -423,7 +426,7 @@ def build_set_psd(s, out_psd, preset="Chain", shading=None, export_dir=None, hid
         img = Image.open(hide_me).convert("RGBA")
         doc.layer(HIDE_ME_NAME, img if img.size == size else img.resize(size), locked=True)
 
-    maps = doc.group(NSR_GROUP)
+    rough, spec, norm = doc.group("rough"), doc.group("spec"), doc.group("Norm")
     base = doc.group("Base")
 
     def tga(key):
@@ -439,12 +442,12 @@ def build_set_psd(s, out_psd, preset="Chain", shading=None, export_dir=None, hid
     r_img, s_img, n_img = tga("r"), tga("s"), tga("n")
     flipped = _flip_green(n_img) if n_img else None
     if r_img:
-        maps.layer(f"{X}_r", r_img.convert("RGB"))
+        rough.layer(f"{X}_r", r_img.convert("RGB"))
     if s_img:
-        maps.layer(f"{X}_s", s_img.convert("RGB"))
+        spec.layer(f"{X}_s", s_img.convert("RGB"))
     if n_img:
-        maps.layer(FLIPPED_NORMAL_NAME, flipped)
-        maps.layer(f"{X}_n", n_img.convert("RGB"))
+        norm.layer(FLIPPED_NORMAL_NAME, flipped)
+        norm.layer(f"{X}_n", n_img.convert("RGB"))
 
     shade = base.group("Shading")
     stack = []

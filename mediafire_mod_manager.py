@@ -2891,7 +2891,7 @@ class App:
         pg = self._new_page("psd")
         pg.grid_rowconfigure(1, weight=1)
         self.psd_sub, act = self._header(pg, "PSD Builder",
-                                         "Painter export  →  one PSD per texture set, with Base and n s r folders")
+                                         "Painter export  →  one PSD per texture set, with rough, spec, Norm and Base folders")
         Btn(act, "Export game .tga from a PSD…", self._psd_pick_export, "secondary").pack(side="left")
 
         body = ctk.CTkScrollableFrame(pg, fg_color="transparent", corner_radius=0,

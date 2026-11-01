@@ -6,7 +6,7 @@ When you raise VERSION in app_version.py, add a section for it at the top.
 ## 2.10.0
 - PSD Builder no longer needs Photoshop - the app writes the PSDs itself in a few seconds
 - One PSD per texture set: pick the Painter export folder, check the names (taken from the .tga files, e.g. texture_plate.1001.psd becomes plate.psd), press Build
-- Each PSD has the locked Hide me layer, an "n s r" folder (_r, _s, Bikes green-flipped normal, _n) and a Base folder with the art and Shading
+- Each PSD has the locked Hide me layer, rough (_r), spec (_s), Norm (Bikes green-flipped normal + _n) and Base folders with the art and Shading
 - Shading: ao Multiply, 2D Overlay 60%, curv Overlay 25%, _mask Multiply - pick Chain or Pendant shading per set, and change them in Shading settings
 - Colour fills are left for you to add
 - "Open in Photoshop when done" opens the new PSDs for you
