@@ -362,15 +362,8 @@ class Job:
 
 # --------------------------------------------------------- building (no Photoshop)
 def _painter_layers(psd_path):
-    """{layer name: PIL image} for every layer in a Painter export PSD."""
-    im = Image.open(psd_path)
-    out = {}
-    for i, info in enumerate(im.layers):
-        im.seek(i + 1)
-        out[info[0]] = im.copy()
-    size = im.size
-    im.close()
-    return out, size
+    """{layer name: image} for every layer in a Painter export PSD, and the PSD's size."""
+    return psd_writer.read_layers(psd_path)
 
 
 def _find(layers, name, suffix=None):

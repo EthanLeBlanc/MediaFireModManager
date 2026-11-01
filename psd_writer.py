@@ -150,3 +150,95 @@ def _resolution_resource(dpi):
     fixed = struct.pack(">I", int(dpi * 65536))
     data = fixed + struct.pack(">HH", 1, 1) + fixed + struct.pack(">HH", 1, 1)
     return b"8BIM" + struct.pack(">H", 1005) + b"\0\0" + struct.pack(">I", len(data)) + data
+
+
+# ------------------------------------------------------------------ reading
+def read_layers(path):
+    """Read the pixel layers of an 8-bit RGB PSD (like Painter's exports).
+    Returns ({layer name: RGBA image the size of the document}, (width, height)).
+    Pillow's own PSD reader mixes up the colour channels of layers, so this reads them directly."""
+    from PIL import Image
+    with open(path, "rb") as f:
+        data = f.read()
+    if data[:4] != b"8BPS" or struct.unpack(">H", data[4:6])[0] != 1:
+        raise ValueError(f"{path} isn't a PSD this app can read")
+    chans, H, W, depth, mode = struct.unpack(">HIIHH", data[12:26])
+    if depth != 8 or mode != 3:
+        raise ValueError(f"{path} must be 8-bit RGB (it is {depth}-bit, mode {mode})")
+    pos = 26
+    pos += 4 + struct.unpack(">I", data[pos:pos + 4])[0]          # colour mode data
+    pos += 4 + struct.unpack(">I", data[pos:pos + 4])[0]          # image resources
+    pos += 4                                                      # layer & mask section length
+    li_len = struct.unpack(">I", data[pos:pos + 4])[0]
+    pos += 4
+    if not li_len:
+        return {}, (W, H)
+    count = abs(struct.unpack(">h", data[pos:pos + 2])[0])
+    pos += 2
+    records = []
+    for _ in range(count):
+        top, left, bottom, right, n = struct.unpack(">iiiiH", data[pos:pos + 18])
+        pos += 18
+        ch = []
+        for _ in range(n):
+            cid, ln = struct.unpack(">hI", data[pos:pos + 6])
+            ch.append((cid, ln))
+            pos += 6
+        pos += 12                                                 # 8BIM, blend, opacity, clip, flags, filler
+        extra_len = struct.unpack(">I", data[pos:pos + 4])[0]
+        pos += 4
+        e, end = pos, pos + extra_len
+        e += 4 + struct.unpack(">I", data[e:e + 4])[0]            # layer mask
+        e += 4 + struct.unpack(">I", data[e:e + 4])[0]            # blending ranges
+        nlen = data[e]
+        name = data[e + 1:e + 1 + nlen].decode("latin-1")
+        e += (1 + nlen + 3) // 4 * 4
+        while e + 12 <= end:                                      # unicode name if present
+            sig, key, ln = data[e:e + 4], data[e + 4:e + 8], struct.unpack(">I", data[e + 8:e + 12])[0]
+            if sig not in (b"8BIM", b"8B64"):
+                break
+            if key == b"luni":
+                cnt = struct.unpack(">I", data[e + 12:e + 16])[0]
+                name = data[e + 16:e + 16 + cnt * 2].decode("utf-16-be")
+            e += 12 + ln
+        pos = end
+        records.append((name, top, left, bottom, right, ch))
+
+    layers = {}
+    for name, top, left, bottom, right, ch in records:
+        w, h = right - left, bottom - top
+        bands = {}
+        for cid, ln in ch:
+            blob = data[pos:pos + ln]
+            pos += ln
+            if w <= 0 or h <= 0 or cid < -1 or cid > 2:
+                continue
+            comp = struct.unpack(">H", blob[:2])[0]
+            body = blob[2:]
+            if comp == 0:
+                band = Image.frombytes("L", (w, h), body[:w * h])
+            elif comp == 1:
+                band = Image.frombytes("L", (w, h), body[h * 2:], "packbits", "L")
+            elif comp in (2, 3):
+                raw = zlib.decompress(body)
+                if comp == 3:                                     # undo the per-row prediction
+                    rows = bytearray(raw)
+                    for y in range(h):
+                        o = y * w
+                        for x in range(1, w):
+                            rows[o + x] = (rows[o + x] + rows[o + x - 1]) & 255
+                    raw = bytes(rows)
+                band = Image.frombytes("L", (w, h), raw[:w * h])
+            else:
+                continue
+            bands[cid] = band
+        if w <= 0 or h <= 0 or not all(c in bands for c in (0, 1, 2)):
+            continue
+        alpha = bands.get(-1, Image.new("L", (w, h), 255))
+        img = Image.merge("RGBA", (bands[0], bands[1], bands[2], alpha))
+        if (left, top, w, h) != (0, 0, W, H):
+            canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            canvas.paste(img, (left, top))
+            img = canvas
+        layers[name] = img
+    return layers, (W, H)
