@@ -3,6 +3,12 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.11.0
+- Stop button on every upload - stops a running upload mid-transfer (also while zipping or hashing), or removes it from the queue before it starts
+- Stopped uploads show as "Stopped", aren't added to History, and are cleared with "Clear finished"
+- A watched mod whose upload you stop stays marked as changed so you can upload it later
+- PSD Builder: reads Painter layers with its own reader and keeps rough, spec and Norm in separate folders
+
 ## 2.10.0
 - PSD Builder no longer needs Photoshop - the app writes the PSDs itself in a few seconds
 - One PSD per texture set: pick the Painter export folder, check the names (taken from the .tga files, e.g. texture_plate.1001.psd becomes plate.psd), press Build

@@ -44,10 +44,16 @@ def share_link(quickkey, filename):
     return f"https://www.mediafire.com/file/{quickkey}/{quote(filename)}/file"
 
 
-def sha256_file(path, chunk=1024 * 1024):
+class UploadCancelled(Exception):
+    """Raised when the person presses Stop on an upload."""
+
+
+def sha256_file(path, chunk=1024 * 1024, cancel=None):
     h = hashlib.sha256()
     with open(path, "rb") as f:
         while True:
+            if cancel and cancel():
+                raise UploadCancelled()
             b = f.read(chunk)
             if not b:
                 break
@@ -58,16 +64,19 @@ def sha256_file(path, chunk=1024 * 1024):
 class _ProgressFile:
     """File wrapper that reports bytes read; has __len__ so requests sends Content-Length."""
 
-    def __init__(self, path, callback=None):
+    def __init__(self, path, callback=None, cancel=None):
         self._f = open(path, "rb")
         self._size = os.path.getsize(path)
         self._done = 0
         self._cb = callback
+        self._cancel = cancel
 
     def __len__(self):
         return self._size
 
     def read(self, n=-1):
+        if self._cancel and self._cancel():
+            raise UploadCancelled()          # aborts the HTTP request mid-transfer
         data = self._f.read(n if n and n > 0 else 256 * 1024)
         self._done += len(data)
         if self._cb:
@@ -221,16 +230,17 @@ class MediaFireClient:
 
     # --------------------------------------------------------------- upload
     def upload(self, path, folder_key=None, remote_name=None, replace_quickkey=None,
-               progress=None, status=None):
+               progress=None, status=None, cancel=None):
         """
         Upload a file. If replace_quickkey is given, the existing file is updated in
         place (same quickkey => same download link). Returns dict with quickkey, filename.
+        cancel: optional callable; when it returns True the upload stops (UploadCancelled).
         """
         name = remote_name or os.path.basename(path)
         size = os.path.getsize(path)
         if status:
             status("Hashing")
-        digest = sha256_file(path)
+        digest = sha256_file(path, cancel=cancel)
         headers = {
             "Content-Type": "application/octet-stream",
             "X-Filename": name.encode("utf-8"),
@@ -239,7 +249,9 @@ class MediaFireClient:
         }
 
         def _post(action, params):
-            body = _ProgressFile(path, progress)
+            if cancel and cancel():
+                raise UploadCancelled()
+            body = _ProgressFile(path, progress, cancel)
             try:
                 with self.lock:
                     url = self._signed_url(action, {k: v for k, v in params.items() if v is not None})

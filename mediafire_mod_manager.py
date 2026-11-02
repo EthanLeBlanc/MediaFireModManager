@@ -33,7 +33,7 @@ try:
 except Exception:
     keyring = None
 
-from mediafire_api import MediaFireClient, MFError, share_link
+from mediafire_api import MediaFireClient, MFError, UploadCancelled, share_link
 import psd_builder
 import psd_writer
 import updater
@@ -285,7 +285,7 @@ def path_signature(path):
     return hashlib.md5("\n".join(parts).encode("utf-8")).hexdigest()
 
 
-def zip_folder(folder, dest_dir):
+def zip_folder(folder, dest_dir, cancel=None):
     """Zip a folder so the folder itself is the top level inside the zip."""
     name = os.path.basename(os.path.normpath(folder))
     out = os.path.join(dest_dir, name + ".zip")
@@ -296,6 +296,8 @@ def zip_folder(folder, dest_dir):
             if not files and not dirs:
                 z.writestr(rel_root.replace(os.sep, "/") + "/", "")
             for fn in sorted(files):
+                if cancel and cancel():
+                    raise UploadCancelled()
                 z.write(os.path.join(root, fn), os.path.join(rel_root, fn))
     return out
 
@@ -855,6 +857,7 @@ class App:
         self.replace_var = tk.BooleanVar(value=self.cfg.get("replace_same_name", True))
         self.job_meta = {}          # job id -> job dict (to rebuild cards after a theme change)
         self.job_last = {}          # job id -> last status/progress shown
+        self.cancelled = set()      # job ids the person pressed Stop on
         self.storage = None
         self.update_info = None
         self.psd = {"folder": self.cfg.get("psd_folder", ""), "sets": [],
@@ -1342,7 +1345,10 @@ class App:
         pct = ctk.CTkLabel(card, text="", font=F(12, "bold"), text_color=C["muted"], width=44, anchor="e")
         pct.grid(row=2, column=2, sticky="e", padx=16, pady=(4, 10))
         link_btn = Btn(top_right, "Copy link", None, "secondary", height=28, width=96, font=F(11))
-        self.job_cards[job["id"]] = dict(card=card, pill=pill, bar=bar, pct=pct, link=link_btn)
+        stop_btn = Btn(top_right, "■  Stop", lambda jid=job["id"]: self._stop_job(jid), "danger", height=28,
+                       width=76, font=F(11))
+        stop_btn.pack(side="right", padx=(0, 10))
+        self.job_cards[job["id"]] = dict(card=card, pill=pill, bar=bar, pct=pct, link=link_btn, stop=stop_btn)
         self.job_state[job["id"]] = "queued"
 
     def _update_job(self, jid, kw):
@@ -1357,8 +1363,13 @@ class App:
             c["bar"].set(kw["progress"])
             c["pct"].configure(text=f"{int(kw['progress'] * 100)}%")
         if kw.get("status"):
-            kind = {"done": "ok", "failed": "bad", "unchanged": "neutral"}.get(state or self.job_state[jid], "info")
+            kind = {"done": "ok", "failed": "bad", "unchanged": "neutral", "cancelled": "neutral"}.get(
+                state or self.job_state[jid], "info")
             set_pill(c["pill"], kw["status"], kind)
+            if kw["status"].endswith("Processing"):     # file is fully sent - too late to stop
+                c["stop"].pack_forget()
+        if (state or self.job_state.get(jid)) in ("done", "failed", "unchanged", "cancelled"):
+            c["stop"].pack_forget()
         if state == "done":
             c["bar"].configure(progress_color=C["ok"])
             c["bar"].set(1)
@@ -1374,8 +1385,26 @@ class App:
             c["bar"].configure(progress_color=C["dim"])
             c["bar"].set(1)
             c["pct"].configure(text="=")
-        if state in ("done", "failed", "unchanged", "active"):
+        elif state == "cancelled":
+            c["bar"].configure(progress_color=C["dim"])
+            c["pct"].configure(text="–", text_color=C["dim"])
+        if state in ("done", "failed", "unchanged", "active", "cancelled"):
             self._refresh_upload_counts()
+
+    def _stop_job(self, jid):
+        """Stop a queued or running upload."""
+        if self.job_state.get(jid) not in ("queued", "active"):
+            return
+        self.cancelled.add(jid)
+        c = self.job_cards.get(jid)
+        if self.job_state.get(jid) == "queued":           # never started - just mark it
+            self._update_job(jid, {"state": "cancelled", "status": "Stopped"})
+            job = self.job_meta.get(jid, {})
+            if job.get("watch_id"):
+                self._on_watch_event("stopped", job["watch_id"], None)
+        elif c:
+            set_pill(c["pill"], "Stopping…", "neutral")
+            c["stop"].configure(state="disabled")
 
     def _refresh_upload_counts(self):
         active = sum(1 for s in self.job_state.values() if s in ("queued", "active"))
@@ -1385,10 +1414,13 @@ class App:
         parts = []
         if active:
             parts.append(f"{active} in progress")
+        stopped = sum(1 for s in self.job_state.values() if s == "cancelled")
         if done:
             parts.append(f"{done} finished")
         if failed:
             parts.append(f"{failed} failed")
+        if stopped:
+            parts.append(f"{stopped} stopped")
         self.up_sub.set("  ·  ".join(parts) if parts else "Nothing uploading right now")
 
     def _refresh_uploads_empty(self):
@@ -1398,7 +1430,7 @@ class App:
             self.up_empty.grid(row=0, column=0, pady=120)
 
     def _clear_finished(self):
-        for jid in [j for j, s in self.job_state.items() if s in ("done", "failed", "unchanged")]:
+        for jid in [j for j, s in self.job_state.items() if s in ("done", "failed", "unchanged", "cancelled")]:
             self.job_cards.pop(jid)["card"].destroy()
             self.job_state.pop(jid)
             self.job_meta.pop(jid, None)
@@ -2012,6 +2044,9 @@ class App:
             job = self.jobs.get()
             jid = job["id"]
             post = lambda **kw: self.ui_q.put(("job", jid, kw))
+            if jid in self.cancelled:                    # stopped while it was waiting in the queue
+                continue
+            stop = lambda jid=jid: jid in self.cancelled
             tmpdir = None
             try:
                 post(state="active", status="Starting")
@@ -2020,7 +2055,7 @@ class App:
                     if job["zip"]:
                         post(status="Zipping")
                         tmpdir = tempfile.mkdtemp(prefix="mfmm_")
-                        z = zip_folder(job["path"], tmpdir)
+                        z = zip_folder(job["path"], tmpdir, cancel=stop)
                         files.append((z, job["folder_key"], job["folder_name"],
                                       job["remote_name"] or os.path.basename(z)))
                     else:
@@ -2033,6 +2068,8 @@ class App:
 
                 actions, link = [], None
                 for n, (lf, fkey, fname, rname) in enumerate(files, 1):
+                    if stop():
+                        raise UploadCancelled()
                     prefix = f"{n}/{len(files)} · " if len(files) > 1 else ""
                     qk = job["force_quickkey"]
                     if not qk and job["replace"]:
@@ -2042,7 +2079,7 @@ class App:
                     res = self.api.upload(
                         lf, folder_key=fkey, remote_name=rname, replace_quickkey=qk,
                         progress=lambda d, t, n=n: post(progress=((n - 1) + d / max(t, 1)) / len(files)),
-                        status=lambda s, p=prefix: post(status=p + s))
+                        status=lambda s, p=prefix: post(status=p + s), cancel=stop)
                     action = "unchanged" if res.get("unchanged") else ("updated" if qk else "new")
                     same_link = (not qk) or res["quickkey"] == qk
                     self._log_history(job, fname, rname, res, action, same_link)
@@ -2065,6 +2102,13 @@ class App:
                 if self._cur_key() in {f[1] for f in files}:
                     self.ui_q.put(("call", lambda _: self._load_folder(), None))
             except Exception as e:
+                if isinstance(e, UploadCancelled) or stop():
+                    post(state="cancelled", status="Stopped")
+                    self.ui_q.put(("call", lambda _, n=os.path.basename(job["path"]):
+                                   self.toast(f"Stopped uploading {n}", "info"), None))
+                    if job["watch_id"]:
+                        self.ui_q.put(("watch", "stopped", job["watch_id"], None))
+                    continue
                 msg = e.message if isinstance(e, MFError) else str(e)
                 post(state="failed", status="Failed")
                 self.ui_q.put(("call", lambda _, m=msg: self.toast(m, "bad"), None))
@@ -2275,6 +2319,9 @@ class App:
         elif kind == "failed":
             st["busy"] = False
             self._set_watch_label(wid, "Changed · upload failed")
+        elif kind == "stopped":
+            st["busy"] = False
+            self._set_watch_label(wid, "Changed · upload stopped")
 
     def _upload_watch(self, w):
         if not w or not os.path.exists(w["path"]):
