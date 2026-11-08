@@ -3,6 +3,14 @@
 Each version's notes are shown in the app's "Update available" window.
 When you raise VERSION in app_version.py, add a section for it at the top.
 
+## 2.12.0
+- Halloween themes are gone - replaced by 5 Christmas and 5 Thanksgiving themes
+- Christmas: Christmas Eve (tree, presents and Santa's sleigh), Candy Cane, Frosty (snowman), North Pole (northern lights), Gingerbread (gingerbread house)
+- Thanksgiving: Harvest (hay and pumpkins), Turkey Trot (a turkey that walks the fence - click it), Cranberry (red barn), Maple (geese flying over), Pumpkin Spice
+- Each holiday theme has its own moving sidebar scene - click the snow, peppermints and leaves
+- Settings groups the themes into Christmas, Thanksgiving and Everyday
+- If you were on a Halloween theme you're moved to Harvest automatically
+
 ## 2.11.0
 - Stop button on every upload - stops a running upload mid-transfer (also while zipping or hashing), or removes it from the queue before it starts
 - Stopped uploads show as "Stopped", aren't added to History, and are cleared with "Clear finished"
